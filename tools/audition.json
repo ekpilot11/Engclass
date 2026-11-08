@@ -2,25 +2,12 @@
   "model": "eleven_multilingual_v2",
   "settings": { "speed": 0.92 },
   "people": [
-    { "who": "officer", "label": "Passport officer (Arabic accent)",
-      "text": "Good evening. Passports, please. What is the purpose of your visit?",
-      "candidates": [
-        { "name": "Emirati", "voice_id": "xa8eOqmKc5EbIYyKGw0u", "public_owner_id": "5d77d46e4386d5cb3c1ef4475e28870c91f16b9a22f5aca9e2b29859f982dec7", "note": "Emirati, middle-aged, calm" },
-        { "name": "Yousef", "voice_id": "e0kBCN6KP30USsCwnSlg", "public_owner_id": "be7f2f07098dc23343bab4a9a1202b290c2456f82b01ebcecea0a8af8a146bd9", "note": "Natural Arabic accent, warm" },
-        { "name": "Nafees", "voice_id": "puDRtQWF8NtQiPMJygTb", "public_owner_id": "59efb68e2b3431ff501151856009525781c59986333159e8287ae7891950e8a2", "note": "Light Arabic accent, clear" }
-      ] },
-    { "who": "you", "label": "You (the passenger)",
+    { "who": "you", "label": "You (the passenger), Brazilian accent",
       "text": "Good evening. Here you are. We are moving to Dubai. These are my children.",
       "candidates": [
-        { "name": "Sarah", "voice_id": "EXAVITQu4vr4xnSDxMaL", "note": "American, calm" },
-        { "name": "Bella", "voice_id": "hpp4J3VqNfWAUOO0d1Us", "note": "American, warm" },
-        { "name": "Matilda", "voice_id": "XrExE9yKIg1WjnnlVkGX", "note": "American, friendly" }
-      ] },
-    { "who": "teacher", "label": "Teacher (reads the words)",
-      "text": "Passport. Here is my passport. Queue. Please wait in the queue.",
-      "candidates": [
-        { "name": "Alice", "voice_id": "Xb7hH8MSUJpSbSDYk0k2", "note": "British, clear educator" },
-        { "name": "Lily", "voice_id": "pFZP5JQG7iQjIQuC4Bku", "note": "British, velvety" }
+        { "name": "Ana", "voice_id": "Z0QKopwR1e0SJMnL0DU0", "public_owner_id": "8e77b936c8ab6143a5097498e2b6d498aaa831b79a35c3d9fc05a89ecb952a51", "note": "English by a Brazilian narrator, calm and clear" },
+        { "name": "Roberta", "voice_id": "RGymW84CSmfVugnA5tvA", "public_owner_id": "4a19cd68f5f2e5172b5eddbfaafdb226726e0b4035e27e952df6bbac94b8aada", "note": "Young Brazilian voice, smooth and confident" },
+        { "name": "Raquel", "voice_id": "GDzHdQOi6jjf8zaXhCYD", "public_owner_id": "4a19cd68f5f2e5172b5eddbfaafdb226726e0b4035e27e952df6bbac94b8aada", "note": "Young Brazilian voice, expressive and energetic" }
       ] }
   ]
 }
