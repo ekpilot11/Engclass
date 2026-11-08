@@ -15,6 +15,7 @@ window.HD_CONTENT.journeys.push({
       icon: "💺",
       sub: "Boarding passes and seats",
       scene: "🎫 ✈️ 💺 🧳",
+      imgScene: "boarding the plane: the family from the reference image walks down the aisle of a big airplane cabin; a friendly flight attendant in a dark-teal uniform points to their row of seats; some overhead lockers are open.",
       intro: "You board the plane with the twins, your mother and the nanny. Show your boarding passes, find your seats and ask to sit together.",
       introPt: "Você embarca no avião com os gêmeos, sua mãe e a babá. Mostre os cartões de embarque, encontre os assentos e peça para vocês sentarem juntos.",
       tips: [
@@ -26,16 +27,25 @@ window.HD_CONTENT.journeys.push({
           pt: "Se a família não estiver sentada junta, peça com educação à tripulação. Eles costumam ajudar famílias com crianças pequenas." }
       ],
       vocab: [
-        { e: "🎫", w: "boarding pass", pt: "cartão de embarque", ex: "May I see your boarding pass?", exPt: "Posso ver seu cartão de embarque?" },
-        { e: "💺", w: "seat", pt: "assento, poltrona", ex: "My seat is 32A.", exPt: "Meu assento é o 32A." },
-        { e: "🔢", w: "row", pt: "fileira", ex: "We are in row thirty-two.", exPt: "Estamos na fileira trinta e dois." },
-        { e: "🪟", w: "window seat", pt: "assento na janela", ex: "The children want the window seat.", exPt: "As crianças querem o assento na janela." },
+        { e: "🎫", w: "boarding pass", pt: "cartão de embarque", ex: "May I see your boarding pass?", exPt: "Posso ver seu cartão de embarque?",
+          img: "an airline boarding pass held in a hand, with a barcode-like pattern and grey lines instead of writing" },
+        { e: "💺", w: "seat", pt: "assento, poltrona", ex: "My seat is 32A.", exPt: "Meu assento é o 32A.",
+          img: "a single comfortable airplane seat in an aircraft cabin, seen from the front" },
+        { e: "🔢", w: "row", pt: "fileira", ex: "We are in row thirty-two.", exPt: "Estamos na fileira trinta e dois.",
+          img: "a row of three airplane seats side by side in a cabin, seen from the aisle" },
+        { e: "🪟", w: "window seat", pt: "assento na janela", ex: "The children want the window seat.", exPt: "As crianças querem o assento na janela.",
+          img: "an airplane window seat next to an oval window showing clouds and blue sky" },
         { e: "🚶", w: "aisle", pt: "corredor", ex: "Go down this aisle.", exPt: "Siga por este corredor.",
-          note: "Say it like “I’ll”: the s is silent.", notePt: "Pronuncia-se “ail”: o s é mudo." },
-        { e: "🧳", w: "overhead locker", pt: "compartimento de bagagem", ex: "Please put your bag in the overhead locker.", exPt: "Por favor, coloque a mala no compartimento de bagagem." },
-        { e: "👨‍👩‍👧‍👦", w: "together", pt: "juntos", ex: "Can we sit together?", exPt: "Podemos sentar juntos?" },
-        { e: "👦👧", w: "twins", pt: "gêmeos", ex: "They are twins: a boy and a girl.", exPt: "Eles são gêmeos: um menino e uma menina." },
-        { e: "🛫", w: "take-off", pt: "decolagem", ex: "The children must wear seatbelts for take-off.", exPt: "As crianças precisam usar o cinto na decolagem." }
+          note: "Say it like “I’ll”: the s is silent.", notePt: "Pronuncia-se “ail”: o s é mudo.",
+          img: "the long narrow aisle between rows of seats inside an airplane cabin, seen from one end" },
+        { e: "🧳", w: "overhead locker", pt: "compartimento de bagagem", ex: "Please put your bag in the overhead locker.", exPt: "Por favor, coloque a mala no compartimento de bagagem.",
+          img: "an open overhead locker above airplane seats with a suitcase inside" },
+        { e: "👨‍👩‍👧‍👦", w: "together", pt: "juntos", ex: "Can we sit together?", exPt: "Podemos sentar juntos?",
+          img: "the family from the reference image sitting together side by side in a row of airplane seats, smiling", imgFamily: true },
+        { e: "👦👧", w: "twins", pt: "gêmeos", ex: "They are twins: a boy and a girl.", exPt: "Eles são gêmeos: um menino e uma menina.",
+          img: "the two toddler twins from the reference image, the boy and the girl, sitting side by side in airplane seats with their seatbelts on", imgFamily: true },
+        { e: "🛫", w: "take-off", pt: "decolagem", ex: "The children must wear seatbelts for take-off.", exPt: "As crianças precisam usar o cinto na decolagem.",
+          img: "an airplane taking off from a runway into a clear blue sky" }
       ],
       dialogue: {
         lines: [
@@ -115,6 +125,7 @@ window.HD_CONTENT.journeys.push({
       icon: "🍽️",
       sub: "Meals, drinks, warm milk",
       scene: "🍗 🍝 🧃 ☕",
+      imgScene: "meal time on the plane: the family from the reference image sits in a row of airplane seats with the tray tables down; a male flight attendant in a dark-teal waistcoat with a food trolley offers meals; the toddlers have colourful children's meals.",
       intro: "The flight attendants bring food and drinks. Choose your meal, order for the children and your mother, and ask for warm milk.",
       introPt: "Os comissários servem comida e bebidas. Escolha sua refeição, peça para as crianças e para sua mãe, e peça leite morno.",
       tips: [
@@ -126,17 +137,27 @@ window.HD_CONTENT.journeys.push({
           pt: "Os comissários normalmente podem esquentar leite ou papinha. É só pedir com educação." }
       ],
       vocab: [
-        { e: "🍗", w: "chicken", pt: "frango", ex: "Chicken with rice, please.", exPt: "Frango com arroz, por favor." },
-        { e: "🍝", w: "pasta", pt: "massa, macarrão", ex: "The pasta has vegetables.", exPt: "A massa tem legumes." },
-        { e: "🧒", w: "children’s meal", pt: "refeição infantil", ex: "Two children’s meals, please.", exPt: "Duas refeições infantis, por favor." },
-        { e: "🧃", w: "juice", pt: "suco", ex: "Apple juice for the children, please.", exPt: "Suco de maçã para as crianças, por favor." },
-        { e: "💧", w: "water", pt: "água", ex: "Could I have some water, please?", exPt: "Pode me dar um pouco de água, por favor?" },
-        { e: "☕", w: "tea", pt: "chá", ex: "Tea with milk, no sugar, please.", exPt: "Chá com leite, sem açúcar, por favor." },
+        { e: "🍗", w: "chicken", pt: "frango", ex: "Chicken with rice, please.", exPt: "Frango com arroz, por favor.",
+          img: "an airline meal tray with grilled chicken and rice" },
+        { e: "🍝", w: "pasta", pt: "massa, macarrão", ex: "The pasta has vegetables.", exPt: "A massa tem legumes.",
+          img: "an airline meal tray with pasta and vegetables in a small dish" },
+        { e: "🧒", w: "children’s meal", pt: "refeição infantil", ex: "Two children’s meals, please.", exPt: "Duas refeições infantis, por favor.",
+          img: "a colourful children's meal on an airplane tray: a small pasta dish, fruit and a little juice box" },
+        { e: "🧃", w: "juice", pt: "suco", ex: "Apple juice for the children, please.", exPt: "Suco de maçã para as crianças, por favor.",
+          img: "a small carton of apple juice with a straw next to a plastic cup of juice" },
+        { e: "💧", w: "water", pt: "água", ex: "Could I have some water, please?", exPt: "Pode me dar um pouco de água, por favor?",
+          img: "a small bottle of water next to a plastic cup of water" },
+        { e: "☕", w: "tea", pt: "chá", ex: "Tea with milk, no sugar, please.", exPt: "Chá com leite, sem açúcar, por favor.",
+          img: "a cup of tea with milk on a small saucer, with a little steam rising" },
         { e: "🍼", w: "milk bottle", pt: "mamadeira", ex: "Could you warm this milk bottle, please?", exPt: "Você pode esquentar esta mamadeira, por favor?",
-          note: "warm = a little hot", notePt: "warm = morno" },
-        { e: "🌶️", w: "spicy", pt: "apimentado", ex: "Is it spicy?", exPt: "É apimentado?" },
-        { e: "🍽️", w: "tray", pt: "bandeja", ex: "Can I take your tray?", exPt: "Posso levar sua bandeja?" },
-        { e: "🧻", w: "napkin", pt: "guardanapo", ex: "Could I have some more napkins?", exPt: "Pode me dar mais guardanapos?" }
+          note: "warm = a little hot", notePt: "warm = morno",
+          img: "a baby milk bottle filled with warm milk, a small curl of steam above it" },
+        { e: "🌶️", w: "spicy", pt: "apimentado", ex: "Is it spicy?", exPt: "É apimentado?",
+          img: "a red chili pepper next to a bowl of food, with little flames to show it is spicy" },
+        { e: "🍽️", w: "tray", pt: "bandeja", ex: "Can I take your tray?", exPt: "Posso levar sua bandeja?",
+          img: "a fold-down tray table on the back of an airplane seat with a meal tray on it" },
+        { e: "🧻", w: "napkin", pt: "guardanapo", ex: "Could I have some more napkins?", exPt: "Pode me dar mais guardanapos?",
+          img: "a neat stack of folded white paper napkins" }
       ],
       dialogue: {
         lines: [
@@ -222,6 +243,7 @@ window.HD_CONTENT.journeys.push({
       icon: "🛎️",
       sub: "Blankets, toilets, turbulence",
       scene: "🛎️ 🛌 🚻 🤒",
+      imgScene: "a long night flight: the family from the reference image sits in airplane seats under soft blankets; the toddler twins are sleepy; a female flight attendant in a dark-teal uniform brings more blankets; small reading lights glow above the seats.",
       intro: "It’s a long flight. The children are cold, your son feels sick, and there is some turbulence. Ask the cabin crew for help.",
       introPt: "O voo é longo. As crianças estão com frio, seu filho está enjoado e há um pouco de turbulência. Peça ajuda à tripulação.",
       tips: [
@@ -233,16 +255,26 @@ window.HD_CONTENT.journeys.push({
           pt: "Quando o aviso de cinto acende, todos devem sentar e apertar o cinto, inclusive as crianças." }
       ],
       vocab: [
-        { e: "🛎️", w: "call button", pt: "botão de chamada", ex: "Press the call button if you need help.", exPt: "Aperte o botão de chamada se precisar de ajuda." },
-        { e: "🛌", w: "blanket", pt: "cobertor", ex: "Could we have two blankets, please?", exPt: "Pode nos dar dois cobertores, por favor?" },
-        { e: "🥶", w: "cold", pt: "com frio", ex: "The children are cold.", exPt: "As crianças estão com frio." },
-        { e: "🤢", w: "feel sick", pt: "estar enjoado", ex: "My son feels sick.", exPt: "Meu filho está enjoado." },
-        { e: "🤮", w: "sick bag", pt: "saquinho para enjoo", ex: "Do you have a sick bag?", exPt: "Você tem um saquinho para enjoo?" },
-        { e: "🟢", w: "vacant", pt: "livre", ex: "The toilet is vacant.", exPt: "O banheiro está livre." },
-        { e: "🔴", w: "occupied", pt: "ocupado", ex: "The toilet is occupied.", exPt: "O banheiro está ocupado." },
-        { e: "🚼", w: "changing table", pt: "trocador", ex: "Is there a changing table in the toilet?", exPt: "Tem trocador no banheiro?" },
-        { e: "🌪️", w: "turbulence", pt: "turbulência", ex: "There is some turbulence.", exPt: "Há um pouco de turbulência." },
-        { e: "🤒", w: "fever", pt: "febre", ex: "My daughter has a fever.", exPt: "Minha filha está com febre." }
+        { e: "🛎️", w: "call button", pt: "botão de chamada", ex: "Press the call button if you need help.", exPt: "Aperte o botão de chamada se precisar de ajuda.",
+          img: "a hand pressing the flight attendant call button on the panel above an airplane seat; the button shows a small person symbol and lights up" },
+        { e: "🛌", w: "blanket", pt: "cobertor", ex: "Could we have two blankets, please?", exPt: "Pode nos dar dois cobertores, por favor?",
+          img: "a folded soft blue airline blanket with a small pillow" },
+        { e: "🥶", w: "cold", pt: "com frio", ex: "The children are cold.", exPt: "As crianças estão com frio.",
+          img: "the toddler twins from the reference image shivering and hugging themselves because they are cold", imgFamily: true },
+        { e: "🤢", w: "feel sick", pt: "estar enjoado", ex: "My son feels sick.", exPt: "Meu filho está enjoado.",
+          img: "the toddler boy from the reference image looking pale and unwell in an airplane seat, holding his tummy", imgFamily: true },
+        { e: "🤮", w: "sick bag", pt: "saquinho para enjoo", ex: "Do you have a sick bag?", exPt: "Você tem um saquinho para enjoo?",
+          img: "a white paper sick bag from an airplane seat pocket" },
+        { e: "🟢", w: "vacant", pt: "livre", ex: "The toilet is vacant.", exPt: "O banheiro está livre.",
+          img: "an airplane toilet door standing open, with a small green light above the door handle" },
+        { e: "🔴", w: "occupied", pt: "ocupado", ex: "The toilet is occupied.", exPt: "O banheiro está ocupado.",
+          img: "a closed and locked airplane toilet door, with a small red light above the door handle" },
+        { e: "🚼", w: "changing table", pt: "trocador", ex: "Is there a changing table in the toilet?", exPt: "Tem trocador no banheiro?",
+          img: "a fold-down baby changing table inside a small airplane toilet" },
+        { e: "🌪️", w: "turbulence", pt: "turbulência", ex: "There is some turbulence.", exPt: "Há um pouco de turbulência.",
+          img: "an airplane bouncing through grey bumpy clouds, with wavy motion lines around it" },
+        { e: "🤒", w: "fever", pt: "febre", ex: "My daughter has a fever.", exPt: "Minha filha está com febre.",
+          img: "the toddler girl from the reference image with a fever: flushed cheeks, a thermometer in her mouth, and the mother's hand on her forehead", imgFamily: true }
       ],
       dialogue: {
         lines: [
@@ -330,6 +362,7 @@ window.HD_CONTENT.journeys.push({
       icon: "🛬",
       sub: "Listen to the captain",
       scene: "💺 🛬 🌇",
+      imgScene: "landing in Dubai: the family from the reference image looks out of the airplane window together at the Dubai skyline at sunset as the plane comes down to land.",
       intro: "Your plane is landing in Dubai. Listen to the captain and the flight attendant, ask for help with your bags, and ask where to collect the stroller.",
       introPt: "Seu avião está pousando em Dubai. Ouça o comandante e a comissária, peça ajuda com as malas e pergunte onde pegar o carrinho de bebê.",
       tips: [
@@ -341,16 +374,24 @@ window.HD_CONTENT.journeys.push({
           pt: "Antes de sair do avião, confira as coisas de todos: passaportes, as bolsas das crianças, da sua mãe e da babá." }
       ],
       vocab: [
-        { e: "🛬", w: "landing", pt: "pouso", ex: "We are landing in Dubai.", exPt: "Estamos pousando em Dubai." },
-        { e: "💺", w: "seatbelt", pt: "cinto de segurança", ex: "Please keep your seatbelt fastened.", exPt: "Por favor, mantenha o cinto afivelado." },
-        { e: "🕖", w: "local time", pt: "hora local", ex: "The local time is seven forty-five.", exPt: "A hora local é sete e quarenta e cinco." },
-        { e: "🌡️", w: "temperature", pt: "temperatura", ex: "The temperature is thirty-four degrees.", exPt: "A temperatura é de trinta e quatro graus." },
+        { e: "🛬", w: "landing", pt: "pouso", ex: "We are landing in Dubai.", exPt: "Estamos pousando em Dubai.",
+          img: "an airplane landing on a runway with its wheels down, a city skyline in the distance at sunset" },
+        { e: "💺", w: "seatbelt", pt: "cinto de segurança", ex: "Please keep your seatbelt fastened.", exPt: "Por favor, mantenha o cinto afivelado.",
+          img: "a fastened airplane seatbelt with a metal buckle across a seat" },
+        { e: "🕖", w: "local time", pt: "hora local", ex: "The local time is seven forty-five.", exPt: "A hora local é sete e quarenta e cinco.",
+          img: "a round wall clock with hands showing a quarter to eight, with the Dubai skyline at evening behind it; the clock face has dots instead of numbers" },
+        { e: "🌡️", w: "temperature", pt: "temperatura", ex: "The temperature is thirty-four degrees.", exPt: "A temperatura é de trinta e quatro graus.",
+          img: "a thermometer with a high red level next to a hot desert sun; no numbers on the thermometer" },
         { e: "🎒", w: "belongings", pt: "pertences", ex: "Take all your belongings with you.", exPt: "Leve todos os seus pertences.",
-          note: "= your things", notePt: "= suas coisas" },
+          note: "= your things", notePt: "= suas coisas",
+          img: "a group of personal belongings on a seat: a handbag, a phone, passports, a small child's toy and a water bottle" },
         { e: "👶", w: "stroller", pt: "carrinho de bebê", ex: "Where can we collect our stroller?", exPt: "Onde podemos pegar nosso carrinho de bebê?",
-          note: "British English: pushchair", notePt: "Em inglês britânico: pushchair" },
-        { e: "🏋️", w: "heavy", pt: "pesado", ex: "My bag is very heavy.", exPt: "Minha mala está muito pesada." },
-        { e: "📘", w: "passport", pt: "passaporte", ex: "Keep your passports in your hand.", exPt: "Deixe os passaportes na mão." }
+          note: "British English: pushchair", notePt: "Em inglês britânico: pushchair",
+          img: "a double stroller for twins in a light teal colour" },
+        { e: "🏋️", w: "heavy", pt: "pesado", ex: "My bag is very heavy.", exPt: "Minha mala está muito pesada.",
+          img: "a woman trying to lift a very heavy suitcase, leaning back with effort, with small motion lines" },
+        { e: "📘", w: "passport", pt: "passaporte", ex: "Keep your passports in your hand.", exPt: "Deixe os passaportes na mão.",
+          img: "a hand holding several dark-blue passports" }
       ],
       dialogue: {
         lines: [

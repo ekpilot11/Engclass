@@ -8,6 +8,8 @@ Hello Dubai: ElevenLabs helper (voices with real accents).
         voices from the ElevenLabs voice library with that accent (free-plan friendly first)
     python tools/elevenlabs.py voices
         voices already in the account (including the standard "premade" ones)
+    python tools/elevenlabs.py add OWNER_ID VOICE_ID NAME   |   delete VOICE_ID...
+        add a library voice to the account (needed to record with it) / remove voices
     python tools/elevenlabs.py audition tools/audition.json OUT_DIR
         adds the candidate voices, records one sample sentence for each, and writes
         OUT_DIR/index.html, a page to listen and choose
@@ -99,18 +101,28 @@ def my_voices():
 
 
 def add_library_voice(public_owner_id, voice_id, name):
-    """Copy a voice from the library into the account (needed before using it). Returns its voice id."""
+    """Copy a voice from the library into the account (needed before using it).
+    Returns (voice id, True if it was added now)."""
     for v in my_voices():
         if v.get('voice_id') == voice_id or v.get('name') == name:
-            return v['voice_id']
+            return v['voice_id'], False
     res = call('POST', f'/v1/voices/add/{public_owner_id}/{voice_id}', {'new_name': name})
-    return res.get('voice_id', voice_id)
+    return res.get('voice_id', voice_id), True
+
+
+def delete_voice(voice_id):
+    """Remove a voice from the account (frees a voice slot; recordings already made are kept)."""
+    call('DELETE', f'/v1/voices/{voice_id}')
+
+
+def sample_path(voice_id, text, model, settings):
+    h = hashlib.sha1(json.dumps([voice_id, text, model, settings], sort_keys=True).encode()).hexdigest()[:16]
+    return os.path.join(CACHE, f'sample-{h}.mp3')
 
 
 def sample(voice_id, text, model, settings):
     os.makedirs(CACHE, exist_ok=True)
-    h = hashlib.sha1(json.dumps([voice_id, text, model, settings], sort_keys=True).encode()).hexdigest()[:16]
-    path = os.path.join(CACHE, f'sample-{h}.mp3')
+    path = sample_path(voice_id, text, model, settings)
     if not os.path.exists(path):
         with open(path, 'wb') as f:
             f.write(tts(voice_id, text, model, settings))
@@ -127,10 +139,13 @@ def audition(config_path, out_dir):
     for person in cfg['people']:
         rows = []
         for i, c in enumerate(person['candidates']):
-            vid = c['voice_id']
-            if c.get('public_owner_id'):
-                vid = add_library_voice(c['public_owner_id'], c['voice_id'], f"HD {person['who']} {c['name']}")
+            vid, added = c['voice_id'], False
+            cached = os.path.exists(sample_path(vid, person['text'], model, settings))
+            if c.get('public_owner_id') and not cached:
+                vid, added = add_library_voice(c['public_owner_id'], c['voice_id'], f"HD {person['who']} {c['name']}")
             src = sample(vid, person['text'], model, settings)
+            if added and cfg.get('cleanup'):
+                delete_voice(vid)  # keep voice slots free; the chosen ones are added again later
             fname = f"{person['who']}-{i + 1}.mp3"
             with open(src, 'rb') as f, open(os.path.join(out_dir, fname), 'wb') as g:
                 g.write(f.read())
@@ -201,6 +216,12 @@ def main():
     s.add_argument('--age')
     s.add_argument('--text')
     s.add_argument('--n', type=int, default=10)
+    d = sub.add_parser('delete')
+    d.add_argument('voice_ids', nargs='+')
+    ad = sub.add_parser('add')
+    ad.add_argument('public_owner_id')
+    ad.add_argument('voice_id')
+    ad.add_argument('name')
     a2 = sub.add_parser('audition')
     a2.add_argument('config')
     a2.add_argument('out')
@@ -215,6 +236,12 @@ def main():
         for v in search(a.accent, a.gender, a.age, a.n, a.text):
             print(f"{v['voice_id']}  owner={v.get('public_owner_id')}  {v.get('name', ''):<24} accent={v.get('accent')} {v.get('gender')} {v.get('age')} "
                   f"free={v.get('free_users_allowed')} uses={v.get('usage_character_count_1y')} | {(v.get('description') or v.get('descriptive') or '')[:80]}")
+    elif a.cmd == 'delete':
+        for v in a.voice_ids:
+            delete_voice(v)
+            print('deleted', v)
+    elif a.cmd == 'add':
+        print(add_library_voice(a.public_owner_id, a.voice_id, a.name))
     elif a.cmd == 'audition':
         audition(a.config, a.out)
 

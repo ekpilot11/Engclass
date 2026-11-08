@@ -89,6 +89,34 @@ def multipart(fields, files):
     return out.getvalue(), f'multipart/form-data; boundary={boundary}'
 
 
+# Documented GPT Image 2.x rates, dollars per million tokens (used only to report spending).
+RATES = {'text_in': 5.0, 'image_in': 8.0, 'out': 30.0}
+
+
+def cost_of(usage):
+    if not usage:
+        return 0.0
+    det = usage.get('input_tokens_details') or {}
+    text_in = det.get('text_tokens', usage.get('input_tokens', 0) - det.get('image_tokens', 0))
+    image_in = det.get('image_tokens', 0)
+    out = usage.get('output_tokens', 0)
+    return (text_in * RATES['text_in'] + image_in * RATES['image_in'] + out * RATES['out']) / 1e6
+
+
+def log_usage(key, model, quality, usage):
+    c = cost_of(usage)
+    with open(os.path.join(CACHE, 'usage.jsonl'), 'a') as f:
+        f.write(json.dumps({'key': key, 'model': model, 'quality': quality, 'usage': usage, 'cost': round(c, 4), 'time': int(time.time())}) + '\n')
+    return c
+
+
+def total_spent():
+    path = os.path.join(CACHE, 'usage.jsonl')
+    if not os.path.exists(path):
+        return 0.0
+    return sum(json.loads(line).get('cost', 0) for line in open(path) if line.strip())
+
+
 def generate(job, model, quality, ref_paths):
     if ref_paths:
         fields = {'model': model, 'prompt': job['prompt'], 'size': job['size'], 'quality': quality, 'n': '1'}
@@ -97,7 +125,7 @@ def generate(job, model, quality, ref_paths):
     else:
         body = json.dumps({'model': model, 'prompt': job['prompt'], 'size': job['size'], 'quality': quality, 'n': 1}).encode()
         res = call('POST', '/images/generations', body, {'Content-Type': 'application/json'})
-    return base64.b64decode(res['data'][0]['b64_json'])
+    return base64.b64decode(res['data'][0]['b64_json']), res.get('usage')
 
 
 def export(png, kind, path):
@@ -156,6 +184,7 @@ def main():
     ap.add_argument('jobs')
     ap.add_argument('--model')
     ap.add_argument('--quality', default='medium')
+    ap.add_argument('--vocab-quality', help='quality for word cards (default: same as --quality)')
     ap.add_argument('--only', help='comma-separated keys to make (default: all in the list)')
     ap.add_argument('--variant', default='1', help='change to get a new version of --only pictures')
     ap.add_argument('--max', type=int, default=20, help='stop before making more than this many new pictures')
@@ -178,8 +207,9 @@ def main():
         if len(refs) != len(job['refs']):
             sys.exit(f"{job['key']} needs {job['refs']} first.")
         variant = a.variant if (only and job['key'] in only) else '1'
+        quality = (a.vocab_quality or a.quality) if job['kind'] == 'vocab' else a.quality
         ref_ids = ','.join(cmap[r] for r in job['refs'])
-        h = hashlib.sha1('|'.join([job['prompt'], job['size'], a.quality, ref_ids, variant, a.model or 'auto']).encode()).hexdigest()[:16]
+        h = hashlib.sha1('|'.join([job['prompt'], job['size'], quality, ref_ids, variant, a.model or 'auto']).encode()).hexdigest()[:16]
         fname = f'{h}.png'
         cpath = os.path.join(CACHE, fname)
         if not os.path.exists(cpath):
@@ -188,8 +218,9 @@ def main():
             if model is None:
                 model = pick_model(a.model)
                 print('using model:', model)
-            print(f"making {job['key']} …", flush=True)
-            png = generate(job, model, a.quality, refs)
+            png, usage = generate(job, model, quality, refs)
+            spent = log_usage(job['key'], model, quality, usage)
+            print(f"made {job['key']} ({quality}, ${spent:.3f})", flush=True)
             with open(cpath, 'wb') as f:
                 f.write(png)
             made += 1
@@ -206,7 +237,7 @@ def main():
     n = write_index()
     if a.contact:
         contact_sheet(done, a.contact)
-    print(f'{made} new pictures made; {n} pictures in img/index.js')
+    print(f'{made} new pictures made; {n} pictures in img/index.js; logged spending so far ${total_spent():.2f}')
 
 
 if __name__ == '__main__':

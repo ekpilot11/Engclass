@@ -1,13 +1,67 @@
 {
   "model": "eleven_multilingual_v2",
   "settings": { "speed": 0.92 },
+  "cleanup": true,
   "people": [
-    { "who": "you", "label": "You (the passenger), Brazilian accent",
-      "text": "Good evening. Here you are. We are moving to Dubai. These are my children.",
+    { "who": "customs", "label": "Customs officer (Arabic accent)",
+      "text": "Excuse me, madam. Please put your bags on the scanner. Do you have anything to declare?",
       "candidates": [
-        { "name": "Ana", "voice_id": "Z0QKopwR1e0SJMnL0DU0", "public_owner_id": "8e77b936c8ab6143a5097498e2b6d498aaa831b79a35c3d9fc05a89ecb952a51", "note": "English by a Brazilian narrator, calm and clear" },
-        { "name": "Roberta", "voice_id": "RGymW84CSmfVugnA5tvA", "public_owner_id": "4a19cd68f5f2e5172b5eddbfaafdb226726e0b4035e27e952df6bbac94b8aada", "note": "Young Brazilian voice, smooth and confident" },
-        { "name": "Raquel", "voice_id": "GDzHdQOi6jjf8zaXhCYD", "public_owner_id": "4a19cd68f5f2e5172b5eddbfaafdb226726e0b4035e27e952df6bbac94b8aada", "note": "Young Brazilian voice, expressive and energetic" }
+        { "name": "Salma", "voice_id": "aCChyB4P5WEomwRsOKRh", "public_owner_id": "f87f057c2250691953ac2e6227859706764bd08c88a055a18c74261957885a51", "note": "From Dubai, mature and polished" },
+        { "name": "Laloosh", "voice_id": "e69QIFnbVVXTRO1LrTN8", "public_owner_id": "7398804d9eaf2f463899a907587c33a390591775784f87857b6d0e1e4e3e66f6", "note": "Calm, bright and friendly" }
+      ] },
+    { "who": "porter", "label": "Airport staff at baggage claim (Indian accent)",
+      "text": "The trolleys are over there, next to the wall. They are free.",
+      "candidates": [
+        { "name": "Ranbir", "voice_id": "2iAXJEMO2o0PqUHzvZwQ", "public_owner_id": "7398804d9eaf2f463899a907587c33a390591775784f87857b6d0e1e4e3e66f6", "note": "Neutral and clean" },
+        { "name": "Raju", "voice_id": "pzxut4zZz4GImZNlqQ3H", "public_owner_id": "7398804d9eaf2f463899a907587c33a390591775784f87857b6d0e1e4e3e66f6", "note": "Natural, conversational" }
+      ] },
+    { "who": "agent", "label": "Baggage services (Filipino accent)",
+      "text": "I'm sorry to hear that. Can I see your baggage tag, please?",
+      "candidates": [
+        { "name": "Rachel", "voice_id": "6AUOG2nbfr0yFEeI0784", "public_owner_id": "85238ab5c2723992dda13ea02b8abd4149fdef8fad840fafd684d22175b8e05c", "note": "Warm and friendly" },
+        { "name": "Ate Jane", "voice_id": "2WM58lWaTXuuBkN1puHx", "public_owner_id": "6f39ef6fabd4c1986eb7bc4ca7a217afdc51e32c27f97fd3f536e8e984d0b8c6", "note": "Clear and cheerful" }
+      ] },
+    { "who": "info", "label": "Information desk (Indian accent)",
+      "text": "Go straight ahead. The toilets are on your left, next to the café.",
+      "candidates": [
+        { "name": "Anika", "voice_id": "90ipbRoKi4CpHXvKVtl0", "public_owner_id": "f87f057c2250691953ac2e6227859706764bd08c88a055a18c74261957885a51", "note": "Customer care voice" },
+        { "name": "Alisha", "voice_id": "ftDdhfYtmfGP0tFlBYA1", "public_owner_id": "f87f057c2250691953ac2e6227859706764bd08c88a055a18c74261957885a51", "note": "Soft and gentle" }
+      ] },
+    { "who": "marshal", "label": "Taxi marshal (Indian accent)",
+      "text": "Taxi, madam? How many people? Please take the big taxi over there.",
+      "candidates": [
+        { "name": "Ruhaan", "voice_id": "siw1N9V8LmYeEWKyWBxv", "public_owner_id": "f87f057c2250691953ac2e6227859706764bd08c88a055a18c74261957885a51", "note": "Clear, loud and cheerful" },
+        { "name": "Viraj", "voice_id": "Ock0AL5DBkvTUDePt4Hm", "public_owner_id": "7398804d9eaf2f463899a907587c33a390591775784f87857b6d0e1e4e3e66f6", "note": "Bold and direct" }
+      ] },
+    { "who": "driver", "label": "Taxi driver (Indian / Pakistani accent)",
+      "text": "Good evening, madam. Where are you going? It takes about thirty minutes.",
+      "candidates": [
+        { "name": "Raju", "voice_id": "3gsg3cxXyFLcGIfNbM6C", "public_owner_id": "f87f057c2250691953ac2e6227859706764bd08c88a055a18c74261957885a51", "note": "Authentic, everyday speaker" },
+        { "name": "Viraj", "voice_id": "1U02n4nD6AdIZ9CjF053", "public_owner_id": "f87f057c2250691953ac2e6227859706764bd08c88a055a18c74261957885a51", "note": "Smooth and gentle" }
+      ] },
+    { "who": "pilot", "label": "Captain (British)",
+      "text": "Ladies and gentlemen, welcome to Dubai. The local time is seven forty-five in the evening.",
+      "candidates": [
+        { "name": "George", "voice_id": "JBFqnCBsd6RMkjVDRZzb", "note": "Warm, mature" },
+        { "name": "Daniel", "voice_id": "onwK4e9ZLuTAKqWW03F9", "note": "Steady broadcaster" }
+      ] },
+    { "who": "crew", "label": "Flight attendant, woman (British)",
+      "text": "Good evening, welcome on board. May I see your boarding passes, please?",
+      "candidates": [
+        { "name": "Lily", "voice_id": "pFZP5JQG7iQjIQuC4Bku", "note": "Velvety" },
+        { "name": "Sally", "voice_id": "kBag1HOZlaVBH7ICPE8x", "public_owner_id": "82e0b6473f4a9df376fb54d63a879c813de1b70b8f5f4112cd6c09c234cb5f22", "note": "Warm and friendly" }
+      ] },
+    { "who": "crew2", "label": "Flight attendant, man",
+      "text": "Good evening. Chicken or fish? And for the children?",
+      "candidates": [
+        { "name": "Charlie", "voice_id": "IKne3meq5aSn9XLyUdCD", "note": "Australian, energetic" },
+        { "name": "Eric", "voice_id": "cjVigY5qzO86Huf0OWal", "note": "American, smooth" }
+      ] },
+    { "who": "passenger", "label": "Passenger in your seat",
+      "text": "Oh, sorry! You're right. My seat is thirty-two C.",
+      "candidates": [
+        { "name": "Will", "voice_id": "bIHbv24MWmeRgasZH58o", "note": "Relaxed" },
+        { "name": "Chris", "voice_id": "iP95p4xoKVk53GoZ742B", "note": "Down-to-earth" }
       ] }
   ]
 }
