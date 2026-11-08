@@ -1,16 +1,17 @@
 /*
  * Hello Dubai — the app: routing, pages and the interactive activities.
  * No frameworks and no build step. Pages are addressed with simple hashes:
- *   #            home (the arrivals board)
- *   #passport    a stop
+ *   #                home (the flight boards)
+ *   #passport        a stop
  *   #passport-gaps   an activity of a stop
- *   #phrasebook, #audio
+ *   #phrasebook, #options
  */
 (function () {
   'use strict';
 
   var C = window.HD_CONTENT;
   var SP = window.HDSpeech;
+  var Items = window.HDSpeechItems;
   var app = document.getElementById('app');
 
   /* ================================================================ helpers */
@@ -22,7 +23,6 @@
         var v = props[k];
         if (v == null || v === false) return;
         if (k === 'class') el.className = v;
-        else if (k === 'text') el.textContent = v;
         else if (k.slice(0, 2) === 'on' && typeof v === 'function') el.addEventListener(k.slice(2), v);
         else if (v === true) el.setAttribute(k, '');
         else el.setAttribute(k, String(v));
@@ -55,7 +55,9 @@
     book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
     expand: '<path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M16 21h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>',
     retry: '<path d="M1 4v6h6"/><path d="M3.5 15a9 9 0 1 0 2.1-9.4L1 10"/>',
-    info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>'
+    info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+    globe: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10 15 15 0 0 1 4-10z"/>',
+    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>'
   };
   function icon(name, cls) {
     var s = h('span', { class: 'ico' + (cls ? ' ' + cls : ''), 'aria-hidden': 'true' });
@@ -75,16 +77,19 @@
   function same(a, b) { return String(a).trim().toLowerCase() === String(b).trim().toLowerCase(); }
   function shake(el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
   function later(fn, ms) { var t = setTimeout(fn, ms); cleanup.push(function () { clearTimeout(t); }); }
-  function scrollIntoViewSoft(el, block) {
+  function scrollSoft(el, block) {
     requestAnimationFrame(function () {
       try { el.scrollIntoView({ block: block || 'nearest', behavior: 'smooth' }); } catch (e) { el.scrollIntoView(false); }
     });
+  }
+  function isIOS() {
+    return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   }
 
   /* ================================================================ storage */
 
   var KEY = 'hello-dubai-v1';
-  var store = { settings: { accent: 'mixed', slow: false, text: true }, progress: {}, stamps: {} };
+  var store = { settings: { accent: 'mixed', slow: false, text: true, pt: true, source: 'recorded' }, progress: {}, stamps: {} };
   (function load() {
     try {
       var raw = window.localStorage.getItem(KEY);
@@ -100,23 +105,32 @@
     try { window.localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) { /* ignore */ }
   }
 
+  /* Portuguese help, shown when the setting is on. */
+  function ptOn() { return store.settings.pt !== false; }
+  function pt(text, tag, cls) {
+    if (!text || !ptOn()) return null;
+    return h(tag || 'p', { class: 'pt' + (cls ? ' ' + cls : ''), lang: 'pt-BR' }, text);
+  }
+  function tr(item) { return typeof item === 'string' ? { t: item, pt: '' } : item; }
+
   /* ================================================================ content index */
 
-  var journey = C.journeys[0];
-  var stops = journey.stops;
+  var journeys = C.journeys;
+  var stops = [];
+  journeys.forEach(function (j) { j.stops.forEach(function (s) { s.journey = j; stops.push(s); }); });
   function stopById(id) {
     for (var i = 0; i < stops.length; i++) if (stops[i].id === id) return stops[i];
     return null;
   }
 
   var ACT = {
-    words:     { title: 'New words',        desc: 'Look, listen and learn' },
-    signs:     { title: 'Learn the signs',  desc: 'Tap a sign to hear it' },
-    listen:    { title: 'Listen',           desc: 'Hear the conversation' },
-    gaps:      { title: 'Fill the gaps',    desc: 'Listen and complete' },
-    signquiz:  { title: 'Which sign?',      desc: 'Choose the right sign' },
-    signorder: { title: 'Follow the signs', desc: 'Put them in order' },
-    talk:      { title: 'Your turn',        desc: 'Choose what to say' }
+    words:     { title: 'New words',        pt: 'Palavras novas',     desc: 'Look, listen and learn' },
+    signs:     { title: 'Learn the signs',  pt: 'Aprenda as placas',  desc: 'Tap a sign to hear it' },
+    listen:    { title: 'Listen',           pt: 'Ouça',               desc: 'Hear the conversation' },
+    gaps:      { title: 'Fill the gaps',    pt: 'Complete',           desc: 'Listen and complete' },
+    signquiz:  { title: 'Which sign?',      pt: 'Qual placa?',        desc: 'Choose the right sign' },
+    signorder: { title: 'Follow the signs', pt: 'Siga as placas',     desc: 'Put them in order' },
+    talk:      { title: 'Your turn',        pt: 'Sua vez',            desc: 'Choose what to say' }
   };
   function activitiesOf(stop) {
     var list = [];
@@ -144,7 +158,7 @@
     try { raw = decodeURIComponent((location.hash || '').replace(/^#/, '')); } catch (e) { raw = ''; }
     if (!raw || raw === 'home') return { view: 'home' };
     if (raw === 'phrasebook') return { view: 'phrases' };
-    if (raw === 'audio') return { view: 'audio' };
+    if (raw === 'options' || raw === 'audio') return { view: 'options' };
     var dash = raw.indexOf('-');
     var stop = stopById(dash > 0 ? raw.slice(0, dash) : raw);
     if (!stop) return { view: 'home' };
@@ -159,11 +173,13 @@
     SP.stop();
     closeOverlay();
     var r = parseHash();
+    if (r.stop) SP.preload([r.stop.id]);
+    if (r.view === 'phrases' || r.view === 'options') SP.preload(['common']);
     var view;
     if (r.view === 'stop') view = viewStop(r.stop);
     else if (r.view === 'activity') view = viewActivity(r.stop, r.act);
     else if (r.view === 'phrases') view = viewPhrases();
-    else if (r.view === 'audio') view = viewAudio();
+    else if (r.view === 'options') view = viewOptions();
     else view = viewHome();
     clear(app);
     app.appendChild(view);
@@ -171,7 +187,7 @@
     var title = r.view === 'activity' ? ACT[r.act].title + ' · ' + r.stop.title
       : r.view === 'stop' ? r.stop.title
       : r.view === 'phrases' ? 'Phrasebook'
-      : r.view === 'audio' ? 'Voices and accents' : '';
+      : r.view === 'options' ? 'Settings' : '';
     document.title = title ? title + ' · Hello Dubai' : 'Hello Dubai';
     var h1 = app.querySelector('h1');
     if (h1 && r.view !== 'home') {
@@ -193,7 +209,7 @@
     var right = h('div', { class: 'tb-right' },
       speedToggle(),
       opts.back ? null : h('a', { class: 'tb-btn', href: '#phrasebook', 'aria-label': 'Phrasebook', title: 'Phrasebook' }, icon('book')),
-      opts.back ? null : h('a', { class: 'tb-btn', href: '#audio', 'aria-label': 'Voices and accents', title: 'Voices and accents' }, icon('sliders')));
+      opts.back ? null : h('a', { class: 'tb-btn', href: '#options', 'aria-label': 'Settings', title: 'Settings' }, icon('sliders')));
     return h('header', { class: 'topbar' }, h('div', { class: 'topbar-in' }, left, right));
   }
 
@@ -203,7 +219,7 @@
       clear(b);
       add(b, [h('span', { class: 'speed-ico', 'aria-hidden': 'true' }, '🐢'), h('span', null, 'Slow'), store.settings.slow ? icon('check') : null]);
       b.setAttribute('aria-pressed', store.settings.slow ? 'true' : 'false');
-      b.setAttribute('title', store.settings.slow ? 'Slow speech is on' : 'Slow speech is off');
+      b.setAttribute('title', store.settings.slow ? 'Slow speech is on (fala lenta ligada)' : 'Slow speech is off (fala lenta desligada)');
     }
     b.addEventListener('click', function () { setSlow(!store.settings.slow); });
     document.addEventListener('hd:slow', paint);
@@ -211,7 +227,6 @@
     paint();
     return b;
   }
-
   function setSlow(v) {
     store.settings.slow = !!v;
     save();
@@ -221,16 +236,32 @@
     document.dispatchEvent(ev);
   }
 
+  /* A notice that appears only when sound has a problem. */
   function audioNotice() {
     var el = h('div', { class: 'notice', role: 'status', hidden: true });
-    function show(msg) {
+    function paint() {
+      var st = SP.status();
+      var msg = null, msgPt = null;
+      if (!st.recorded && !SP.hasTTS) {
+        msg = 'This browser can’t play sound. You can still read everything.';
+        msgPt = 'Este navegador não consegue tocar som. Você ainda pode ler tudo.';
+      } else if (st.blocked) {
+        msg = 'Tap a ▶ button to start the sound.' + (isIOS() ? ' No sound? Turn off silent mode (the switch on the side of the iPhone).' : '');
+        msgPt = 'Toque num botão ▶ para começar o som.' + (isIOS() ? ' Sem som? Desligue o modo silencioso (a chave na lateral do iPhone).' : '');
+      }
       clear(el);
-      add(el, [h('strong', null, 'Sound: '), msg, ' ', h('a', { href: '#audio' }, 'Check the audio settings')]);
+      if (!msg) { el.hidden = true; return; }
+      add(el, [h('p', null, h('strong', null, 'Sound: '), msg, ' ', h('a', { href: '#options' }, 'Sound settings')), pt(msgPt)]);
       el.hidden = false;
     }
-    if (!SP.hasTTS) show('this browser can’t speak. You can still read everything. For sound, open the site in Safari (iPhone) or Chrome (Android).');
-    else later(function () { if (SP.voiceCount() === 0) show('we can’t find any voices on this device yet.'); }, 3000);
+    SP.onChange(paint);
+    cleanup.push(function () { SP.offChange(paint); });
+    paint();
     return el;
+  }
+
+  function instr(en, ptText) {
+    return h('div', { class: 'instr' }, h('p', null, en), pt(ptText));
   }
 
   function avatarOf(who) {
@@ -245,31 +276,42 @@
     var isYou = line.who === 'you';
     var text = strip(line.t);
     var spoken = line.say || line.t;
+    var fx = opts.fx || '';
     var el = h('div', { class: 'bubble pop-in' + (isYou ? ' you' : '') });
     var textEl = h('span', { class: 'b-text' }, text);
+    var ptEl = line.pt && ptOn() ? h('span', { class: 'b-pt', lang: 'pt-BR', hidden: true }, line.pt) : null;
     var main = h('button', { class: 'b-main', type: 'button', 'aria-label': ch.name + ': ' + text + '. Play.' },
       h('span', { class: 'b-name' }, ch.name, ' ', icon('volume', 'b-vol')),
-      textEl);
+      textEl, ptEl);
     var tools = h('div', { class: 'b-tools' });
     var result = h('div', { class: 'say-host', 'aria-live': 'polite' });
-    var col = h('div', { class: 'b-col' }, main, tools, result);
     el.appendChild(avatarOf(line.who));
-    el.appendChild(col);
+    el.appendChild(h('div', { class: 'b-col' }, main, tools, result));
 
-    var hidden = false;
     var revealBtn = h('button', { class: 'chip-btn', type: 'button', hidden: true }, icon('eye'), h('span', null, 'Show words'));
     revealBtn.addEventListener('click', function () { setHidden(false); });
     tools.appendChild(revealBtn);
 
+    var ptBtn = null;
+    if (ptEl) {
+      ptBtn = h('button', { class: 'chip-btn pt-btn', type: 'button', 'aria-pressed': 'false' }, h('span', { class: 'pt-tag', 'aria-hidden': 'true' }, 'PT'), h('span', null, 'Português'));
+      ptBtn.addEventListener('click', function () { setPt(ptEl.hidden); });
+      tools.appendChild(ptBtn);
+    }
+    function setPt(v) {
+      if (!ptEl || !ptBtn) return;
+      ptEl.hidden = !v;
+      ptBtn.setAttribute('aria-pressed', v ? 'true' : 'false');
+    }
     function setHidden(v) {
-      hidden = !!v;
-      textEl.classList.toggle('blurred', hidden);
-      textEl.setAttribute('aria-hidden', hidden ? 'true' : 'false');
-      revealBtn.hidden = !hidden;
+      textEl.classList.toggle('blurred', !!v);
+      textEl.setAttribute('aria-hidden', v ? 'true' : 'false');
+      revealBtn.hidden = !v;
+      if (ptBtn) { ptBtn.hidden = !!v; if (v) setPt(false); }
     }
     function play() {
       SP.say(spoken, line.who, {
-        rate: opts.rate, volume: opts.volume,
+        fx: fx,
         onstart: function () { setSpeaking(true); },
         onend: function () { setSpeaking(false); }
       });
@@ -282,7 +324,7 @@
       if (mic) tools.appendChild(mic);
     }
     if (opts.hidden) setHidden(true);
-    return { el: el, play: play, setHidden: setHidden, reveal: function () { setHidden(false); }, setSpeaking: setSpeaking };
+    return { el: el, play: play, setHidden: setHidden, setPt: setPt, reveal: function () { setHidden(false); }, setSpeaking: setSpeaking };
   }
 
   /* "Say it": speech recognition practice (only where the browser supports it). */
@@ -301,9 +343,9 @@
       stopFn = SP.listen({
         result: function (alts) { renderSayResult(host, SP.compare(alts, target)); },
         error: function (code) {
-          var msg = micError(code);
+          var m = micError(code);
           clear(host);
-          if (msg) host.appendChild(h('p', { class: 'say-box bad' }, msg));
+          if (m) host.appendChild(h('div', { class: 'say-box bad' }, h('p', null, m[0]), pt(m[1])));
           reset();
         },
         end: reset
@@ -312,20 +354,20 @@
     return btn;
   }
   function micError(code) {
-    if (code === 'not-allowed' || code === 'service-not-allowed') return 'The microphone is blocked. Allow the microphone for this website in your browser settings, then try again.';
-    if (code === 'no-speech') return 'I didn’t hear anything. Tap “Say it” and speak clearly.';
-    if (code === 'audio-capture') return 'No microphone was found on this device.';
-    if (code === 'network') return 'Speaking practice needs an internet connection.';
-    if (code === 'aborted') return '';
-    if (code === 'unsupported') return 'This browser can’t listen. Try Chrome or Safari.';
-    return 'Speaking practice didn’t work this time. Try again.';
+    if (code === 'not-allowed' || code === 'service-not-allowed') return ['The microphone is not allowed here. Open the website in Safari or Chrome, allow the microphone and try again.', 'O microfone não está liberado aqui. Abra o site no Safari ou no Chrome, permita o microfone e tente de novo.'];
+    if (code === 'no-speech') return ['I didn’t hear anything. Tap “Say it” and speak clearly.', 'Não ouvi nada. Toque em “Say it” e fale com clareza.'];
+    if (code === 'audio-capture') return ['No microphone was found on this device.', 'Nenhum microfone foi encontrado neste aparelho.'];
+    if (code === 'network') return ['Speaking practice needs an internet connection.', 'A prática de fala precisa de internet.'];
+    if (code === 'aborted') return null;
+    if (code === 'unsupported') return ['This browser can’t listen. Try Chrome or Safari.', 'Este navegador não consegue ouvir. Tente o Chrome ou o Safari.'];
+    return ['Speaking practice didn’t work this time. Try again.', 'A prática de fala não funcionou desta vez. Tente de novo.'];
   }
   function renderSayResult(host, r) {
     clear(host);
     var level = r.score >= 0.85 ? 'good' : r.score >= 0.6 ? 'ok' : 'bad';
-    var msg = level === 'good' ? 'Excellent!' : level === 'ok' ? 'Good! Almost perfect.' : 'Try again. Listen, then repeat.';
+    var msg = level === 'good' ? ['Excellent!', 'Excelente!'] : level === 'ok' ? ['Good! Almost perfect.', 'Bom! Quase perfeito.'] : ['Try again. Listen, then repeat.', 'Tente de novo. Ouça e repita.'];
     host.appendChild(h('div', { class: 'say-box ' + level },
-      h('p', { class: 'say-msg' }, h('strong', null, msg)),
+      h('p', { class: 'say-msg' }, h('strong', null, msg[0]), ptOn() ? h('span', { class: 'pt-inline', lang: 'pt-BR' }, ' · ' + msg[1]) : null),
       h('p', { class: 'say-words' }, r.words.map(function (w) { return h('span', { class: w.ok ? 'w-ok' : 'w-miss' }, w.w + ' '); })),
       h('p', { class: 'say-heard' }, 'I heard: “' + r.heard + '”')));
   }
@@ -367,7 +409,7 @@
   }
   function stampEl(stop, iso, big) {
     return h('div', { class: 'stamp' + (big ? ' big' : '') },
-      h('span', { class: 'stamp-top' }, 'DXB · Dubai'),
+      h('span', { class: 'stamp-top' }, stop.journey.id === 'flight' ? 'In flight' : 'DXB · Dubai'),
       h('span', { class: 'stamp-icon', 'aria-hidden': 'true' }, stop.icon),
       h('span', { class: 'stamp-name' }, stop.title),
       h('span', { class: 'stamp-date' }, stampDate(iso)));
@@ -399,41 +441,45 @@
       h('p', { class: 'kicker' }, 'Dubai International · DXB'),
       h('h1', null, 'Welcome to Dubai'),
       h('p', { class: 'hero-ar', lang: 'ar', dir: 'rtl' }, 'مرحباً بكم في دبي'),
-      h('p', { class: 'lede' }, 'Practise the English you need on arrival day, from the plane to the taxi. Look, listen and answer.'),
+      h('p', { class: 'lede' }, 'Practise the English you need for the trip: on the plane, at the airport and in the taxi. Look, listen and answer.'),
+      pt('Pratique o inglês que você vai usar na viagem: no avião, no aeroporto e no táxi. Veja, ouça e responda.'),
       h('div', { class: 'hero-actions' },
         h('a', { class: 'btn btn-primary', href: next.href }, next.label, icon('forward')))));
 
     main.appendChild(audioNotice());
-    main.appendChild(board());
+    journeys.forEach(function (j) { main.appendChild(board(j)); });
     main.appendChild(stampsSection());
 
     main.appendChild(h('section', { class: 'tools' },
       h('a', { class: 'tool', href: '#phrasebook' },
         h('span', { class: 'tool-ico' }, icon('book')),
         h('span', { class: 'tool-main' }, h('span', { class: 'tool-title' }, 'Phrasebook'),
-          h('span', { class: 'tool-desc' }, 'Useful sentences to play or show at the airport'))),
-      h('a', { class: 'tool', href: '#audio' },
+          h('span', { class: 'tool-desc' }, 'Sentences to play or show at the airport, also for grandma and the nanny'),
+          pt('Frases para tocar ou mostrar no aeroporto, também para a vovó e a babá', 'span', 'block'))),
+      h('a', { class: 'tool', href: '#options' },
         h('span', { class: 'tool-ico' }, icon('sliders')),
-        h('span', { class: 'tool-main' }, h('span', { class: 'tool-title' }, 'Voices and accents'),
-          h('span', { class: 'tool-desc' }, 'Test the sound, choose accents, slow speech')))));
+        h('span', { class: 'tool-main' }, h('span', { class: 'tool-title' }, 'Settings'),
+          h('span', { class: 'tool-desc' }, 'Sound, voices, slow speech, Portuguese help'),
+          pt('Som, vozes, fala lenta, ajuda em português', 'span', 'block')))));
 
     main.appendChild(h('section', { class: 'soon' },
       h('h2', null, 'Next journeys'),
       h('p', { class: 'muted' }, 'More situations for your new life in Dubai are coming.'),
       h('ul', { class: 'soon-list' }, C.comingSoon.map(function (s) {
         return h('li', null, h('span', { class: 'soon-ico', 'aria-hidden': 'true' }, s.icon),
-          h('span', null, h('strong', null, s.title), h('span', { class: 'muted' }, ' · ' + s.sub)));
+          h('span', null, h('strong', null, s.title), h('span', { class: 'muted' }, ' · ' + s.sub),
+            ptOn() ? h('span', { class: 'pt-inline', lang: 'pt-BR' }, ' (' + s.pt + ')') : null));
       }))));
 
     root.appendChild(main);
     return root;
   }
 
-  function board() {
+  function board(j) {
     var clock = h('span', { class: 'bh-clock' }, dubaiTime());
     var t = setInterval(function () { clock.textContent = dubaiTime(); }, 20000);
     cleanup.push(function () { clearInterval(t); });
-    var rows = stops.map(function (s, i) {
+    var rows = j.stops.map(function (s, i) {
       var p = stopProgress(s);
       var status = p.done === 0 ? h('span', { class: 'br-status st-ready' }, 'Start')
         : p.done < p.total ? h('span', { class: 'br-status st-progress' }, p.done + '/' + p.total)
@@ -441,16 +487,17 @@
       return h('a', { class: 'board-row', href: '#' + s.id },
         h('span', { class: 'br-num' }, (i < 9 ? '0' : '') + (i + 1)),
         h('span', { class: 'br-ico', 'aria-hidden': 'true' }, s.icon),
-        h('span', { class: 'br-main' }, h('span', { class: 'br-title' }, s.title), h('span', { class: 'br-sub' }, s.sub)),
+        h('span', { class: 'br-main' }, h('span', { class: 'br-title' }, s.title),
+          h('span', { class: 'br-sub' }, ptOn() ? s.pt : s.sub)),
         status);
     });
-    return h('section', { class: 'board', 'aria-label': 'Your journey through the airport' },
+    return h('section', { class: 'board', 'aria-label': j.title },
       h('div', { class: 'board-head' },
-        h('span', { class: 'bh-title' }, 'Arrivals'),
-        h('span', { class: 'bh-ar', lang: 'ar', dir: 'rtl' }, 'الوصول'),
+        h('span', { class: 'bh-title' }, j.board),
+        h('span', { class: 'bh-ar', lang: 'ar', dir: 'rtl' }, j.boardAr),
         h('span', { class: 'bh-time' }, h('span', { class: 'bh-label' }, 'Dubai '), clock)),
       h('div', { class: 'board-cols', 'aria-hidden': 'true' },
-        h('span', null, 'Step'), h('span', { class: 'bc-where' }, journey.title), h('span', null, 'Status')),
+        h('span', null, 'Step'), h('span', { class: 'bc-where' }, j.title), h('span', null, 'Status')),
       rows);
   }
 
@@ -464,13 +511,16 @@
           'aria-label': s.title + (has ? ': stamp collected' : ': no stamp yet') },
           h('span', { 'aria-hidden': 'true' }, s.icon));
       })),
-      h('p', { class: 'muted small' }, 'Finish every activity at a stop to get its stamp.'));
+      h('p', { class: 'muted small' }, 'Finish every activity at a stop to get its stamp.'),
+      pt('Termine todas as atividades de uma etapa para ganhar o carimbo.', 'p', 'small'));
   }
 
   /* ================================================================ stop page */
 
   function viewStop(stop) {
-    var idx = stops.indexOf(stop);
+    var j = stop.journey;
+    var idx = j.stops.indexOf(stop);
+    var flat = stops.indexOf(stop);
     var root = h('div', { class: 'page' });
     root.appendChild(topbar({ back: { href: '#', label: 'Journey' } }));
     var main = h('main', { class: 'wrap' });
@@ -478,8 +528,10 @@
     main.appendChild(h('div', { class: 'stop-sign' },
       h('span', { class: 'ss-num' }, String(idx + 1)),
       h('div', { class: 'ss-text' },
+        h('p', { class: 'ss-journey' }, j.title),
         h('h1', null, stop.title),
-        stop.ar ? h('p', { class: 'ss-ar', lang: 'ar', dir: 'rtl' }, stop.ar) : null),
+        stop.ar ? h('p', { class: 'ss-ar', lang: 'ar', dir: 'rtl' }, stop.ar) : null,
+        ptOn() ? h('p', { class: 'ss-pt', lang: 'pt-BR' }, stop.pt) : null),
       h('span', { class: 'ss-tile', 'aria-hidden': 'true' }, stop.icon)));
 
     var listenBtn = h('button', { class: 'chip-btn', type: 'button' }, icon('volume'), h('span', null, 'Listen'));
@@ -487,24 +539,26 @@
     main.appendChild(h('section', { class: 'scene' },
       h('div', { class: 'scene-art', 'aria-hidden': 'true' }, stop.scene),
       h('p', { class: 'lede' }, stop.intro),
+      pt(stop.introPt),
       h('div', null, listenBtn)));
 
     var acts = activitiesOf(stop);
     main.appendChild(h('section', { class: 'acts-sec' },
-      h('h2', null, 'Activities'),
+      h('h2', null, 'Activities', ptOn() ? h('span', { class: 'h-pt', lang: 'pt-BR' }, ' · Atividades') : null),
       h('ol', { class: 'acts' }, acts.map(function (a, i) {
         var p = store.progress[pkey(stop, a)];
         return h('li', null, h('a', { class: 'act-row' + (p ? ' done' : ''), href: '#' + pkey(stop, a) },
           h('span', { class: 'ar-num' }, p ? icon('check') : String(i + 1)),
-          h('span', { class: 'ar-main' }, h('span', { class: 'ar-title' }, ACT[a].title), h('span', { class: 'ar-desc' }, ACT[a].desc)),
+          h('span', { class: 'ar-main' }, h('span', { class: 'ar-title' }, ACT[a].title),
+            h('span', { class: 'ar-desc' }, ptOn() ? ACT[a].pt + ' · ' + ACT[a].desc : ACT[a].desc)),
           h('span', { class: 'ar-score' }, p ? (p.total ? p.best + '/' + p.total : 'Done') : ''),
           icon('forward', 'ar-go')));
       }))));
 
     if (stop.tips && stop.tips.length) {
       main.appendChild(h('section', { class: 'tips' },
-        h('h2', null, icon('info'), 'Good to know in Dubai'),
-        h('ul', null, stop.tips.map(function (t) { return h('li', null, t); }))));
+        h('h2', null, icon('info'), 'Good to know', ptOn() ? h('span', { class: 'h-pt', lang: 'pt-BR' }, ' · Bom saber') : null),
+        h('ul', null, stop.tips.map(function (t) { t = tr(t); return h('li', null, h('span', null, t.t), pt(t.pt, 'span', 'block')); }))));
     }
 
     if (store.stamps[stop.id]) {
@@ -512,7 +566,7 @@
         h('p', { class: 'muted' }, 'You collected this stamp. You can practise again any time.')));
     }
 
-    var prev = stops[idx - 1], nxt = stops[idx + 1];
+    var prev = stops[flat - 1], nxt = stops[flat + 1];
     main.appendChild(h('nav', { class: 'stop-nav', 'aria-label': 'Other stops' },
       prev ? h('a', { class: 'btn', href: '#' + prev.id }, icon('back'), prev.title) : h('span'),
       nxt ? h('a', { class: 'btn', href: '#' + nxt.id }, nxt.title, icon('forward')) : h('a', { class: 'btn', href: '#' }, 'Journey', icon('forward'))));
@@ -533,7 +587,8 @@
     var i = acts.indexOf(act);
     main.appendChild(h('div', { class: 'act-head' },
       h('p', { class: 'kicker' }, stop.title + ' · ' + (i + 1) + ' of ' + acts.length),
-      h('h1', null, ACT[act].title)));
+      h('h1', null, ACT[act].title),
+      pt(ACT[act].pt, 'p', 'act-pt')));
     main.appendChild(audioNotice());
     var body = h('div', { class: 'act-body' });
     main.appendChild(body);
@@ -545,8 +600,6 @@
     root.appendChild(main);
     return root;
   }
-
-  function instr(text) { return h('p', { class: 'instr' }, text); }
 
   function showResult(ctx, score, total) {
     SP.stop();
@@ -563,7 +616,8 @@
     save();
 
     var ratio = total ? score / total : 1;
-    var title = ratio === 1 ? 'Excellent!' : ratio >= 0.7 ? 'Well done!' : ratio >= 0.4 ? 'Good try!' : 'Keep practising!';
+    var title = ratio === 1 ? ['Excellent!', 'Excelente!'] : ratio >= 0.7 ? ['Well done!', 'Muito bem!']
+      : ratio >= 0.4 ? ['Good try!', 'Boa tentativa!'] : ['Keep practising!', 'Continue praticando!'];
     var acts = activitiesOf(ctx.stop);
     var nextAct = acts[acts.indexOf(ctx.act) + 1];
     var nextStop = stops[stops.indexOf(ctx.stop) + 1];
@@ -576,7 +630,8 @@
     retry.addEventListener('click', render);
     ctx.body.appendChild(h('section', { class: 'result pop-in', 'aria-live': 'polite' },
       h('div', { class: 'result-badge' + (ratio >= 0.7 ? ' good' : ' ok') }, icon('check')),
-      h('h2', null, title),
+      h('h2', null, title[0]),
+      pt(title[1]),
       total ? h('p', { class: 'result-score' }, h('strong', null, score + ' of ' + total), ' correct the first time')
             : h('p', { class: 'result-score' }, 'Activity complete'),
       total && ratio < 1 ? h('p', { class: 'muted' }, 'Try again to improve. We keep your best score.') : null,
@@ -593,8 +648,22 @@
     openOverlay(h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'New passport stamp' },
       stampEl(stop, store.stamps[stop.id], true),
       h('h2', null, 'New passport stamp!'),
+      pt('Novo carimbo no passaporte!'),
       h('p', null, 'You finished every activity in “' + stop.title + '”.'),
       btn));
+  }
+
+  function progressBar(i, n) {
+    return h('div', { class: 'quiz-top' },
+      h('div', { class: 'quiz-progress', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(n), 'aria-valuenow': String(i) },
+        h('span', { style: 'width:' + Math.round((i / n) * 100) + '%' })),
+      h('span', { class: 'quiz-count' }, (i + 1) + ' / ' + n));
+  }
+
+  function feedback(kind, lead, en, ptText) {
+    return h('div', { class: 'fb-box fb-' + kind },
+      h('p', null, h('strong', null, lead + ' '), en),
+      pt(ptText));
   }
 
   /* ---------------------------------------------------------------- New words */
@@ -605,7 +674,8 @@
 
     function learn() {
       clear(body);
-      body.appendChild(instr('Tap a picture to hear the word and an example. Then play the listening game.'));
+      body.appendChild(instr('Tap a picture to hear the word and an example. Then play the listening game.',
+        'Toque numa figura para ouvir a palavra e um exemplo. Depois, jogue o jogo de escuta.'));
       var playAll = h('button', { class: 'btn', type: 'button' }, icon('play'), h('span', null, 'Play all words'));
       var cards = [];
       playAll.addEventListener('click', function () {
@@ -622,9 +692,11 @@
         var card = h('button', { class: 'vcard', type: 'button', 'aria-expanded': 'false' },
           h('span', { class: 'v-emoji', 'aria-hidden': 'true' }, v.e),
           h('span', { class: 'v-word' }, v.w),
+          ptOn() && v.pt ? h('span', { class: 'v-pt', lang: 'pt-BR' }, v.pt) : null,
           h('span', { class: 'v-more' },
             h('span', { class: 'v-ex' }, v.ex),
-            v.note ? h('span', { class: 'v-note' }, v.note) : null));
+            ptOn() && v.exPt ? h('span', { class: 'v-expt', lang: 'pt-BR' }, v.exPt) : null,
+            v.note ? h('span', { class: 'v-note' }, ptOn() && v.notePt ? v.notePt : v.note) : null));
         card.addEventListener('click', function () {
           card.classList.add('open');
           card.setAttribute('aria-expanded', 'true');
@@ -654,14 +726,15 @@
         var opts = shuffle([target].concat(shuffle(vocab.filter(function (v) { return v !== target; })).slice(0, 3)));
         clear(body);
         body.appendChild(progressBar(i, qs.length));
-        var word = h('p', { class: 'reveal-word', hidden: SP.hasTTS ? true : null }, target.w);
+        var word = h('p', { class: 'reveal-word', hidden: true }, target.w);
         var big = h('button', { class: 'big-listen', type: 'button', 'aria-label': 'Listen to the word' }, icon('volume'));
         big.addEventListener('click', function () { SP.say(target.w, 'teacher'); });
         var showWord = h('button', { class: 'link-btn', type: 'button' }, 'Show the word');
         showWord.addEventListener('click', function () { word.hidden = false; showWord.hidden = true; });
         body.appendChild(h('div', { class: 'quiz-prompt' },
-          h('p', { class: 'quiz-q' }, SP.hasTTS ? 'Listen. Which picture is it?' : 'Read. Which picture is it?'),
-          SP.hasTTS ? big : null, word, SP.hasTTS ? showWord : null));
+          h('p', { class: 'quiz-q' }, 'Listen. Which picture is it?'),
+          pt('Ouça. Qual é a figura?'),
+          big, word, showWord));
         var grid = h('div', { class: 'pic-grid' });
         opts.forEach(function (o) {
           var label = h('span', { class: 'pic-label' }, '');
@@ -688,30 +761,25 @@
           grid.appendChild(tile);
         });
         body.appendChild(grid);
-        if (SP.hasTTS) later(function () { SP.say(target.w, 'teacher'); }, 250);
+        later(function () { SP.say(target.w, 'teacher'); }, 250);
       }
     }
   };
-
-  function progressBar(i, n) {
-    return h('div', { class: 'quiz-top' },
-      h('div', { class: 'quiz-progress', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(n), 'aria-valuenow': String(i) },
-        h('span', { style: 'width:' + Math.round((i / n) * 100) + '%' })),
-      h('span', { class: 'quiz-count' }, (i + 1) + ' / ' + n));
-  }
 
   /* ---------------------------------------------------------------- Listen */
   RUN.listen = function (ctx) {
     var d = ctx.stop.dialogue;
     var body = ctx.body;
     var textOn = store.settings.text !== false;
-    body.appendChild(instr('Press play and listen to the conversation. Tap any line to hear it again. Then answer the questions.'));
+    body.appendChild(instr('Press play and listen to the conversation. Tap any line to hear it again. Then answer the questions.',
+      'Aperte play e ouça a conversa. Toque em qualquer frase para ouvir de novo. Depois, responda às perguntas.'));
 
     var playLabel = h('span', null, 'Play the conversation');
     var playBtn = h('button', { class: 'btn btn-primary', type: 'button' }, icon('play'), playLabel);
     var textLabel = h('span', null, '');
     var textBtn = h('button', { class: 'btn', type: 'button' });
-    body.appendChild(h('div', { class: 'controls' }, playBtn, textBtn));
+    var controls = h('div', { class: 'controls' }, playBtn, textBtn);
+    body.appendChild(controls);
 
     var chat = h('div', { class: 'chat' });
     var bubbles = d.lines.map(function (line) {
@@ -720,6 +788,18 @@
       return b;
     });
     body.appendChild(chat);
+
+    if (ptOn()) {
+      var ptAllOn = false;
+      var ptAll = h('button', { class: 'btn', type: 'button', 'aria-pressed': 'false' }, icon('globe'), h('span', null, 'Português'));
+      ptAll.addEventListener('click', function () {
+        ptAllOn = !ptAllOn;
+        ptAll.setAttribute('aria-pressed', ptAllOn ? 'true' : 'false');
+        if (ptAllOn && !textOn) { textOn = true; bubbles.forEach(function (b) { b.setHidden(false); }); paintText(); }
+        bubbles.forEach(function (b) { b.setPt(ptAllOn); });
+      });
+      controls.appendChild(ptAll);
+    }
 
     function paintText() {
       clear(textBtn);
@@ -747,7 +827,7 @@
       SP.sayAll(d.lines.map(function (l) { return { text: l.say || l.t, who: l.who }; }), {
         onItem: function (i) {
           bubbles.forEach(function (b, k) { b.setSpeaking(k === i); });
-          scrollIntoViewSoft(bubbles[i].el);
+          scrollSoft(bubbles[i].el);
         },
         onDone: function () {
           bubbles.forEach(function (b) { b.setSpeaking(false); });
@@ -760,7 +840,7 @@
     var score = 0;
     var qs = d.questions || [];
     if (qs.length) {
-      body.appendChild(questionsBlock(qs, function (firstTry) { score = firstTry; finishBtn.disabled = false; scrollIntoViewSoft(finishBtn); }));
+      body.appendChild(questionsBlock(qs, function (firstTry) { score = firstTry; finishBtn.disabled = false; scrollSoft(finishBtn); }));
     } else {
       finishBtn.disabled = false;
     }
@@ -769,7 +849,7 @@
   };
 
   function questionsBlock(questions, onAll) {
-    var wrap = h('section', { class: 'questions' }, h('h2', null, 'Did you understand?'));
+    var wrap = h('section', { class: 'questions' }, h('h2', null, 'Did you understand?'), pt('Você entendeu?'));
     var answered = 0, firstTry = 0;
     questions.forEach(function (q, qi) {
       var correct = q.a[0];
@@ -777,7 +857,7 @@
       var read = h('button', { class: 'icon-btn sm', type: 'button', 'aria-label': 'Read the question aloud' }, icon('volume'));
       read.addEventListener('click', function () { SP.say(q.q, 'teacher'); });
       var grid = h('div', { class: 'options' });
-      var fb = h('p', { class: 'fb', 'aria-live': 'polite' });
+      var fb = h('div', { class: 'fb', 'aria-live': 'polite' });
       shuffle(q.a).forEach(function (o) {
         var btn = h('button', { class: 'option', type: 'button' }, o);
         btn.addEventListener('click', function () {
@@ -786,7 +866,7 @@
             solved = true;
             btn.classList.add('is-right');
             grid.querySelectorAll('.option').forEach(function (b) { b.disabled = true; });
-            fb.textContent = '';
+            clear(fb);
             answered++;
             if (!tried) firstTry++;
             if (answered === questions.length) onAll(firstTry, questions.length);
@@ -795,13 +875,14 @@
             btn.classList.add('is-wrong');
             btn.disabled = true;
             shake(btn);
-            fb.textContent = 'Not quite. Listen to the conversation again and try another answer.';
+            clear(fb);
+            fb.appendChild(feedback('bad', 'Not quite.', 'Listen to the conversation again and try another answer.', 'Ouça a conversa de novo e tente outra resposta.'));
           }
         });
         grid.appendChild(btn);
       });
       wrap.appendChild(h('div', { class: 'q-card' },
-        h('div', { class: 'q-head' }, h('p', { class: 'q-text' }, (qi + 1) + '. ' + q.q), read),
+        h('div', { class: 'q-head' }, h('div', null, h('p', { class: 'q-text' }, (qi + 1) + '. ' + q.q), pt(q.pt)), read),
         grid, fb));
     });
     return wrap;
@@ -811,7 +892,8 @@
   RUN.gaps = function (ctx) {
     var d = ctx.stop.dialogue;
     var body = ctx.body;
-    body.appendChild(instr('Listen and complete the conversation. The yellow gap is selected: tap a word below to put it there. Tap a filled gap to change it.'));
+    body.appendChild(instr('Listen and complete the conversation. The yellow gap is selected: tap a word below to put it there. Tap a filled gap to change it.',
+      'Ouça e complete a conversa. A lacuna amarela está selecionada: toque numa palavra abaixo para colocá-la ali. Toque numa lacuna preenchida para trocar.'));
 
     var playLabel = h('span', null, 'Play the conversation');
     var playBtn = h('button', { class: 'btn btn-primary', type: 'button' }, icon('play'), playLabel);
@@ -861,7 +943,7 @@
       SP.sayAll(d.lines.map(function (l) { return { text: l.say || l.t, who: l.who }; }), {
         onItem: function (i) {
           rows.forEach(function (r, k) { r.classList.toggle('speaking', k === i); });
-          scrollIntoViewSoft(rows[i]);
+          scrollSoft(rows[i]);
         },
         onDone: function () {
           rows.forEach(function (r) { r.classList.remove('speaking'); });
@@ -878,7 +960,7 @@
       c.el.addEventListener('click', function () { onChip(c); });
       return c;
     });
-    var fb = h('p', { class: 'bank-fb', 'aria-live': 'polite' });
+    var fb = h('div', { class: 'bank-fb', 'aria-live': 'polite' });
     var checkBtn = h('button', { class: 'btn btn-primary', type: 'button', disabled: true }, icon('check'), 'Check');
     var answersBtn = h('button', { class: 'btn', type: 'button', hidden: true }, 'Show answers');
     var finishBtn = h('button', { class: 'btn btn-primary', type: 'button', hidden: true }, 'See my result', icon('forward'));
@@ -892,6 +974,11 @@
     var firstScore = null;
     blanks.forEach(function (b) { b.el.classList.toggle('active', b === active); });
 
+    function setFb(kind, en, ptText) {
+      clear(fb);
+      fb.className = 'bank-fb' + (kind ? ' ' + kind : '');
+      add(fb, [h('p', null, en), pt(ptText)]);
+    }
     function onBlank(b) {
       if (b.locked) return;
       if (b.value) returnChip(b);
@@ -941,9 +1028,8 @@
       requestAnimationFrame(function () {
         var r = el.getBoundingClientRect();
         var bankTop = bank.getBoundingClientRect().top;
-        var topLimit = 72;
         if (r.bottom > bankTop - 12) window.scrollBy({ top: r.bottom - bankTop + 48, behavior: 'smooth' });
-        else if (r.top < topLimit) window.scrollBy({ top: r.top - topLimit - 24, behavior: 'smooth' });
+        else if (r.top < 72) window.scrollBy({ top: r.top - 96, behavior: 'smooth' });
       });
     }
     function update() { checkBtn.disabled = !blanks.every(function (b) { return !!b.value; }); }
@@ -964,14 +1050,13 @@
       });
       if (firstScore === null) firstScore = right;
       if (right === blanks.length) {
-        fb.textContent = 'All correct. Great listening!';
-        fb.className = 'bank-fb good';
+        setFb('good', 'All correct. Great listening!', 'Tudo certo. Ótima escuta!');
         checkBtn.hidden = true; answersBtn.hidden = true; finishBtn.hidden = false;
         lockChips();
       } else {
         var wrong = blanks.length - right;
-        fb.textContent = wrong + (wrong === 1 ? ' gap is' : ' gaps are') + ' not correct (red). Listen again, then tap a red gap to change it.';
-        fb.className = 'bank-fb bad';
+        setFb('bad', wrong + (wrong === 1 ? ' gap is' : ' gaps are') + ' not correct (red). Listen again, then tap a red gap to change it.',
+          wrong + (wrong === 1 ? ' lacuna não está certa' : ' lacunas não estão certas') + ' (em vermelho). Ouça de novo e toque numa lacuna vermelha para trocar.');
         answersBtn.hidden = false;
         checkBtn.disabled = true;
         active = null;
@@ -987,8 +1072,7 @@
         b.el.disabled = true;
         b.locked = true;
       });
-      fb.textContent = 'Here are the answers. Play the conversation again and read along.';
-      fb.className = 'bank-fb';
+      setFb('', 'Here are the answers. Play the conversation again and read along.', 'Aqui estão as respostas. Toque a conversa de novo e acompanhe a leitura.');
       checkBtn.hidden = true; answersBtn.hidden = true; finishBtn.hidden = false;
       lockChips();
     });
@@ -1000,16 +1084,15 @@
   RUN.talk = function (ctx) {
     var turns = ctx.stop.roleplay;
     var body = ctx.body;
-    body.appendChild(instr(SP.hasTTS
-      ? 'You are the passenger. Listen, then choose the best answer. The words are blurred so you listen first: tap “Show words” if you need help.'
-      : 'You are the passenger. Read, then choose the best answer.'));
+    body.appendChild(instr('You are the passenger. Listen, then choose the best answer. The words are blurred so you listen first: tap “Show words” if you need help.',
+      'Você é a passageira. Ouça e escolha a melhor resposta. As palavras ficam borradas para você ouvir primeiro: toque em “Show words” se precisar de ajuda.'));
     var chat = h('div', { class: 'chat' });
     var stage = h('div', { class: 'stage', 'aria-live': 'polite' });
     body.appendChild(chat);
     body.appendChild(stage);
 
     var i = 0, asked = 0, firstTry = 0;
-    var lastStaff = null, lastLine = null;
+    var lastStaff = null;
     var alive = true;
     cleanup.push(function () { alive = false; });
 
@@ -1022,21 +1105,21 @@
       if (i >= turns.length) { end(); return; }
       var t = turns[i++];
       if (t.sit) {
-        lastStaff = null; lastLine = null;
-        chat.appendChild(h('div', { class: 'sit pop-in' }, h('span', { class: 'sit-label' }, 'Situation'), h('p', null, t.sit)));
-        scrollIntoViewSoft(stage, 'end');
+        lastStaff = null;
+        chat.appendChild(h('div', { class: 'sit pop-in' }, h('span', { class: 'sit-label' }, 'Situation'), h('p', null, t.sit), pt(t.pt)));
+        scrollSoft(stage, 'end');
         later(step, 450);
         return;
       }
       if (t.choose) { choices(t); return; }
-      var opts = { hidden: SP.hasTTS && t.who !== 'you', rate: t.fast ? 1.4 : 1, volume: t.quiet ? 0.22 : 1 };
-      var b = makeBubble(t, opts);
+      var fx = Items.fxOf(t);
+      var b = makeBubble(t, { hidden: t.who !== 'you', fx: fx });
       chat.appendChild(b.el);
-      lastStaff = b; lastLine = t;
-      scrollIntoViewSoft(stage, 'end');
+      lastStaff = b;
+      scrollSoft(stage, 'end');
       var nextIsLine = turns[i] && turns[i].who;
       SP.say(t.say || t.t, t.who, {
-        rate: opts.rate, volume: opts.volume,
+        fx: fx,
         onstart: function () { b.setSpeaking(true); },
         onend: function () { b.setSpeaking(false); if (nextIsLine) step(); }
       });
@@ -1050,7 +1133,8 @@
       t.choose.forEach(function (o) { if (o.ok && !correct) correct = o; });
       if (!correct) correct = t.choose[0];
       clear(stage);
-      var head = h('div', { class: 'stage-head' }, h('p', { class: 'stage-q' }, t.ask || 'What do you say?'));
+      var head = h('div', { class: 'stage-head' },
+        h('div', null, h('p', { class: 'stage-q' }, t.ask || 'What do you say?'), pt(t.ask ? t.askPt : 'O que você diz?')));
       if (lastStaff) {
         var again = h('button', { class: 'chip-btn', type: 'button' }, icon('volume'), h('span', null, 'Listen again'));
         again.addEventListener('click', function () { lastStaff.play(); });
@@ -1073,12 +1157,12 @@
               clear(stage);
               if (t.ask) {
                 chat.appendChild(h('div', { class: 'answer-note pop-in' }, h('span', { class: 'muted' }, t.ask + ' '), h('strong', null, o.t)));
-                scrollIntoViewSoft(stage, 'end');
+                scrollSoft(stage, 'end');
                 later(step, 500);
               } else {
                 var yb = makeBubble({ who: 'you', t: o.t, say: o.say });
                 chat.appendChild(yb.el);
-                scrollIntoViewSoft(stage, 'end');
+                scrollSoft(stage, 'end');
                 SP.say(o.say || o.t, 'you', {
                   onstart: function () { yb.setSpeaking(true); },
                   onend: function () { yb.setSpeaking(false); step(); }
@@ -1091,21 +1175,23 @@
             btn.disabled = true;
             shake(btn);
             clear(fb);
-            fb.appendChild(h('p', { class: 'fb-bad' }, h('strong', null, 'Not quite. '), o.why || t.hint || 'Listen again and try another answer.'));
+            fb.appendChild(feedback('bad', 'Not quite.',
+              o.why || t.hint || 'Listen again and try another answer.',
+              o.why ? o.whyPt : t.hint ? t.hintPt : 'Ouça de novo e tente outra resposta.'));
           }
         });
         grid.appendChild(btn);
       });
       add(stage, [head, grid, fb]);
-      scrollIntoViewSoft(stage, 'end');
+      scrollSoft(stage, 'end');
     }
 
     function end() {
       clear(stage);
       var done = h('button', { class: 'btn btn-primary', type: 'button' }, 'See my result', icon('forward'));
       done.addEventListener('click', function () { ctx.finish(firstTry, asked); });
-      add(stage, [h('p', { class: 'stage-q' }, 'Conversation finished. Well done!'), done]);
-      scrollIntoViewSoft(stage, 'end');
+      add(stage, [h('p', { class: 'stage-q' }, 'Conversation finished. Well done!'), pt('Conversa terminada. Muito bem!'), done]);
+      scrollSoft(stage, 'end');
     }
   };
 
@@ -1114,14 +1200,18 @@
     var ids = ctx.stop.signs;
     var body = ctx.body;
     var seen = {};
-    body.appendChild(instr('Tap a sign to hear it and see what it means. Signs at DXB are in English and Arabic.'));
+    body.appendChild(instr('Tap a sign to hear it and see what it means. Signs at DXB are in English and Arabic.',
+      'Toque numa placa para ouvir e ver o que significa. As placas no DXB estão em inglês e árabe.'));
     var count = h('p', { class: 'muted' }, '');
     function paintCount() { count.textContent = 'You opened ' + Object.keys(seen).length + ' of ' + ids.length + ' signs.'; }
     var grid = h('div', { class: 'sgrid' });
     ids.forEach(function (id) {
       var s = C.signs[id];
       var card = h('button', { class: 'sign-card', type: 'button', 'aria-expanded': 'false' },
-        signEl(id), h('span', { class: 'sign-mean' }, s.mean));
+        signEl(id),
+        h('span', { class: 'sign-mean' },
+          h('span', { class: 'block' }, s.mean),
+          ptOn() ? h('span', { class: 'pt block', lang: 'pt-BR' }, s.pt + ': ' + s.meanPt) : null));
       card.addEventListener('click', function () {
         card.classList.add('open');
         card.setAttribute('aria-expanded', 'true');
@@ -1155,7 +1245,7 @@
       read.addEventListener('click', function () { SP.say(q.q, 'teacher'); });
       var card = h('div', { class: 'quiz-card' });
       if (q.sign) card.appendChild(signEl(q.sign, 'sign-lg'));
-      card.appendChild(h('div', { class: 'q-head' }, h('p', { class: 'q-text big' }, q.q), read));
+      card.appendChild(h('div', { class: 'q-head' }, h('div', null, h('p', { class: 'q-text big' }, q.q), pt(q.pt)), read));
       body.appendChild(card);
 
       var fb = h('div', { class: 'fb', 'aria-live': 'polite' });
@@ -1178,18 +1268,19 @@
             grid.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
             clear(fb);
             var s = q.sign ? C.signs[q.sign] : C.signs[o];
-            add(fb, h('p', { class: 'fb-good' }, h('strong', null, 'Correct! '), q.note || (s.en + ': ' + s.mean)));
+            fb.appendChild(feedback('good', 'Correct!', q.note || (s.en + ': ' + s.mean), q.note ? q.notePt : (s.pt + ': ' + s.meanPt)));
             if (!q.sign) SP.say(s.en, 'teacher');
             nextBtn.hidden = false;
-            scrollIntoViewSoft(nextBtn);
+            scrollSoft(nextBtn);
           } else {
             tried = true;
             btn.classList.add('is-wrong');
             btn.disabled = true;
             shake(btn);
             clear(fb);
-            add(fb, h('p', { class: 'fb-bad' }, h('strong', null, 'Not this one. '),
-              q.sign ? 'Look at the sign again.' : ('“' + C.signs[o].en + '” means: ' + C.signs[o].mean)));
+            fb.appendChild(q.sign
+              ? feedback('bad', 'Not this one.', 'Look at the sign again.', 'Olhe a placa de novo.')
+              : feedback('bad', 'Not this one.', '“' + C.signs[o].en + '” means: ' + C.signs[o].mean, '“' + C.signs[o].en + '” = ' + C.signs[o].pt + '. ' + C.signs[o].meanPt));
           }
         });
         grid.appendChild(btn);
@@ -1203,10 +1294,11 @@
   /* ---------------------------------------------------------------- Follow the signs */
   RUN.signorder = function (ctx) {
     var order = ctx.stop.signorder;
-    var hints = ctx.stop.signorderHints || [];
+    var hints = (ctx.stop.signorderHints || []).map(tr);
     var body = ctx.body;
     var pos = 0, mistakes = 0;
-    body.appendChild(instr('You just landed at DXB with the children. Tap the signs in the order you will follow them.'));
+    body.appendChild(instr('You just landed at DXB with the family. Tap the signs in the order you will follow them.',
+      'Vocês acabaram de pousar no DXB. Toque nas placas na ordem em que vão segui-las.'));
 
     var slots = order.map(function (id, k) {
       var holder = h('span', { class: 'slot-empty' });
@@ -1215,7 +1307,14 @@
     body.appendChild(h('ol', { class: 'route', 'aria-label': 'Your route' }, slots.map(function (s) { return s.li; })));
 
     var fb = h('div', { class: 'fb', 'aria-live': 'polite' });
-    var hint = h('p', { class: 'route-hint' }, hints[0] || 'What comes first?');
+    var hint = h('div', { class: 'route-hint' });
+    function paintHint() {
+      clear(hint);
+      var hh = hints[pos];
+      if (!hh) return;
+      add(hint, [h('p', null, hh.t), pt(hh.pt)]);
+    }
+    paintHint();
     body.appendChild(hint);
     var pool = h('div', { class: 'pool' });
     shuffle(order).forEach(function (id) {
@@ -1229,20 +1328,19 @@
           SP.say(C.signs[id].en, 'teacher');
           pos++;
           clear(fb);
+          paintHint();
           if (pos >= order.length) {
-            hint.textContent = '';
             var finish = h('button', { class: 'btn btn-primary', type: 'button' }, 'See my result', icon('forward'));
             finish.addEventListener('click', function () { ctx.finish(Math.max(0, order.length - mistakes), order.length); });
-            add(fb, [h('p', { class: 'fb-good' }, h('strong', null, 'Perfect! '), 'This is your route through the airport.'), finish]);
-            scrollIntoViewSoft(finish);
-          } else {
-            hint.textContent = hints[pos] || 'What comes next?';
+            add(fb, [feedback('good', 'Perfect!', 'This is your route through the airport.', 'Este é o seu caminho pelo aeroporto.'), finish]);
+            scrollSoft(finish);
           }
         } else {
           mistakes++;
           shake(btn);
           clear(fb);
-          add(fb, h('p', { class: 'fb-bad' }, h('strong', null, 'Not yet. '), (hints[pos] || 'Think about what comes next.')));
+          var hh = hints[pos] || { t: 'Think about what comes next.', pt: 'Pense no que vem depois.' };
+          fb.appendChild(feedback('bad', 'Not yet.', hh.t, hh.pt));
         }
       });
       pool.appendChild(btn);
@@ -1258,74 +1356,105 @@
     root.appendChild(topbar({ back: { href: '#', label: 'Journey' } }));
     var main = h('main', { class: 'wrap' });
     main.appendChild(h('div', { class: 'act-head' },
-      h('p', { class: 'kicker' }, 'For the real day at DXB'),
-      h('h1', null, 'Phrasebook')));
-    main.appendChild(instr('Tap the speaker to listen, or the turtle to listen slowly. Tap “Show” to show a sentence in big letters to a person at the airport.'));
+      h('p', { class: 'kicker' }, 'For the real day'),
+      h('h1', null, 'Phrasebook'),
+      pt('Frases úteis', 'p', 'act-pt')));
+    main.appendChild(instr('Tap the speaker to listen, or the turtle to listen slowly. Tap “Show” to show a sentence in big letters to a person at the airport.',
+      'Toque no alto-falante para ouvir, ou na tartaruga para ouvir devagar. Toque em “Show” para mostrar a frase em letras grandes para alguém no aeroporto.'));
 
-    var groups = [{ title: 'Essentials', items: C.essentials }];
-    stops.forEach(function (s) { if (s.phrases) groups.push({ title: s.title, icon: s.icon, items: s.phrases }); });
-    groups.push({ title: 'Emergency', items: C.emergency, note: 'Emergency numbers in the UAE: Police 999 · Ambulance 998 · Fire 997' });
+    var groups = [{ title: 'Essentials', pt: 'O essencial', items: C.essentials }];
+    groups.push({ title: C.family.title, pt: C.family.pt, icon: '👵', items: C.family.items, note: C.family.note, notePt: C.family.notePt });
+    stops.forEach(function (s) { if (s.phrases) groups.push({ title: s.title, pt: s.pt, icon: s.icon, items: s.phrases }); });
+    groups.push({ title: 'Emergency', pt: 'Emergência', items: C.emergency,
+      note: 'Emergency numbers in the UAE: Police 999 · Ambulance 998 · Fire 997',
+      notePt: 'Números de emergência nos Emirados: Polícia 999 · Ambulância 998 · Bombeiros 997' });
 
     groups.forEach(function (g) {
       var sec = h('section', { class: 'phr-group' },
-        h('h2', null, g.icon ? h('span', { class: 'phr-ico', 'aria-hidden': 'true' }, g.icon) : null, g.title));
-      if (g.note) sec.appendChild(h('p', { class: 'notice' }, g.note));
-      g.items.forEach(function (text) { sec.appendChild(phraseRow(text)); });
+        h('h2', null, g.icon ? h('span', { class: 'phr-ico', 'aria-hidden': 'true' }, g.icon) : null, g.title,
+          ptOn() && g.pt ? h('span', { class: 'h-pt', lang: 'pt-BR' }, ' · ' + g.pt) : null));
+      if (g.note) sec.appendChild(h('div', { class: 'notice' }, h('p', null, g.note), pt(g.notePt)));
+      g.items.forEach(function (item) { sec.appendChild(phraseRow(tr(item))); });
       main.appendChild(sec);
     });
     root.appendChild(main);
     return root;
   }
 
-  function phraseRow(text) {
+  function phraseRow(item) {
+    var text = item.t;
     var play = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Listen: ' + text }, icon('volume'));
     play.addEventListener('click', function () { SP.say(text, 'you'); });
     var slow = h('button', { class: 'icon-btn emoji', type: 'button', 'aria-label': 'Listen slowly: ' + text }, h('span', { 'aria-hidden': 'true' }, '🐢'));
-    slow.addEventListener('click', function () { SP.say(text, 'you', { rate: 0.72 }); });
+    slow.addEventListener('click', function () { SP.say(text, 'you', { slow: true }); });
     var show = h('button', { class: 'chip-btn', type: 'button', 'aria-label': 'Show in big letters: ' + text }, icon('expand'), h('span', null, 'Show'));
-    show.addEventListener('click', function () { showBig(text); });
+    show.addEventListener('click', function () { showBig(item); });
     var host = h('div', { class: 'say-host', 'aria-live': 'polite' });
     var tools = h('div', { class: 'phr-tools' }, play, slow, show, sayItButton(text, host));
-    return h('div', { class: 'phr' }, h('p', { class: 'phr-text' }, text), tools, host);
+    return h('div', { class: 'phr' }, h('div', null, h('p', { class: 'phr-text' }, text), pt(item.pt)), tools, host);
   }
 
-  function showBig(text) {
+  function showBig(item) {
     var play = h('button', { class: 'btn btn-primary', type: 'button' }, icon('volume'), 'Play');
-    play.addEventListener('click', function () { SP.say(text, 'you'); });
+    play.addEventListener('click', function () { SP.say(item.t, 'you'); });
     var close = h('button', { class: 'btn', type: 'button' }, icon('x'), 'Close');
     close.addEventListener('click', closeOverlay);
     openOverlay(h('div', { class: 'modal show-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Sentence in big letters' },
-      h('p', { class: 'show-text' }, text),
+      h('p', { class: 'show-text' }, item.t),
+      item.pt ? h('p', { class: 'show-pt', lang: 'pt-BR' }, item.pt) : null,
       h('div', { class: 'result-actions' }, play, close)));
   }
 
-  /* ================================================================ audio settings */
+  /* ================================================================ settings */
 
-  function viewAudio() {
+  function viewOptions() {
     var root = h('div', { class: 'page' });
     root.appendChild(topbar({ back: { href: '#', label: 'Journey' } }));
     var main = h('main', { class: 'wrap' });
     main.appendChild(h('div', { class: 'act-head' },
-      h('p', { class: 'kicker' }, 'Sound'),
-      h('h1', null, 'Voices and accents')));
+      h('p', { class: 'kicker' }, 'Settings'),
+      h('h1', null, 'Sound and help'),
+      pt('Som e ajuda', 'p', 'act-pt')));
 
-    // status + test
-    var status = h('p', { class: 'muted' }, '');
+    function section(title, ptTitle) {
+      return h('section', { class: 'panel' }, h('h2', null, title, ptOn() && ptTitle ? h('span', { class: 'h-pt', lang: 'pt-BR' }, ' · ' + ptTitle) : null));
+    }
+
+    /* --- test the sound --- */
+    var status = h('div', { class: 'status-line' });
     var test = h('button', { class: 'btn btn-primary', type: 'button' }, icon('volume'), 'Play a test sentence');
-    test.addEventListener('click', function () { SP.say('Hello! Welcome to Dubai. I hope you enjoy your new home.', 'teacher'); });
-    main.appendChild(h('section', { class: 'panel' },
-      h('h2', null, 'Test the sound'),
-      h('p', null, 'The voices come from your phone or computer. Nothing to download, and nothing to break. Turn up the volume and press the button.'),
+    test.addEventListener('click', function () { SP.say(Items.TEST, 'teacher'); });
+    var testSec = section('Test the sound', 'Teste o som');
+    add(testSec, [
       h('div', { class: 'controls' }, test),
-      status));
+      status,
+      h('div', { class: 'help-box' },
+        h('p', null, h('strong', null, 'No sound?'), ptOn() ? h('span', { class: 'pt-inline', lang: 'pt-BR' }, ' · Sem som?') : null),
+        h('ol', { class: 'plain-list' },
+          h('li', null, 'iPhone: turn off silent mode with the small switch (or the Action button) on the side of the phone, then turn up the volume.', pt('iPhone: desligue o modo silencioso na chavinha (ou no botão de Ação) na lateral do celular e aumente o volume.', 'span', 'block')),
+          h('li', null, 'Tap a ▶ button once more. Phones only start sound after a tap.', pt('Toque mais uma vez num botão ▶. O celular só começa o som depois de um toque.', 'span', 'block')),
+          h('li', null, 'Still nothing? Open the website in Safari or Chrome instead of inside another app.', pt('Ainda nada? Abra o site no Safari ou no Chrome, e não dentro de outro aplicativo.', 'span', 'block'))))]);
+    main.appendChild(testSec);
 
-    // accents
-    var accentSec = h('section', { class: 'panel' },
-      h('h2', null, 'Accent of the airport staff'),
-      h('p', null, 'In Dubai you will hear English with many accents. Choose what you want to practise.'));
+    /* --- voices --- */
+    var srcSec = section('Voices', 'Vozes');
+    var srcList = h('div', { class: 'accent-list', role: 'radiogroup', 'aria-label': 'Voices' });
+    srcSec.appendChild(srcList);
+    var accentWrap = h('div', { class: 'accent-wrap' },
+      h('h3', null, 'Accent of the airport staff'),
+      h('p', null, 'In Dubai you will hear English with many accents. Choose what you want to practise.'),
+      pt('Em Dubai você vai ouvir inglês com muitos sotaques. Escolha o que quer praticar.'));
     var accentList = h('div', { class: 'accent-list', role: 'radiogroup', 'aria-label': 'Accent' });
-    accentSec.appendChild(accentList);
-    main.appendChild(accentSec);
+    accentWrap.appendChild(accentList);
+    srcSec.appendChild(accentWrap);
+    main.appendChild(srcSec);
+
+    var SOURCES = [
+      { key: 'recorded', label: 'Recorded voices', note: 'Recommended', desc: 'Real recordings with British and American voices. They sound the same on every phone and don’t need the phone’s speech engine.',
+        descPt: 'Gravações com vozes britânicas e americanas. Soam iguais em qualquer celular e não dependem do sistema de voz do aparelho.' },
+      { key: 'device', label: 'Device voices', desc: 'Your phone’s own voices. You can choose accents, also Indian English and an experimental Arabic accent.',
+        descPt: 'As vozes do seu celular. Você pode escolher sotaques, inclusive inglês indiano e um sotaque árabe experimental.' }
+    ];
     var ACCENT_CHOICES = [
       { key: 'mixed', label: 'Dubai mix', note: 'Recommended', desc: 'Different people have different accents, like at the real airport: British, Indian, Filipino and more.' },
       { key: 'gb', label: 'British English', desc: 'Clear and common in the UAE.' },
@@ -1334,7 +1463,7 @@
       { key: 'ar', label: 'Arabic accent', note: 'Experimental', desc: 'An Arabic voice reads the English of the officers and staff. It works on some devices only and can sound strange.' }
     ];
 
-    // speed + text
+    /* --- speed --- */
     var seg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Speech speed' });
     var segNormal = h('button', { type: 'button' }, 'Normal');
     var segSlow = h('button', { type: 'button' }, '🐢 Slow');
@@ -1348,28 +1477,65 @@
     cleanup.push(function () { document.removeEventListener('hd:slow', paintSeg); });
     add(seg, [segNormal, segSlow]);
     paintSeg();
-    main.appendChild(h('section', { class: 'panel' }, h('h2', null, 'Speed'), seg));
+    var speedSec = section('Speed', 'Velocidade');
+    speedSec.appendChild(seg);
+    main.appendChild(speedSec);
 
-    // cast
-    var castSec = h('section', { class: 'panel' }, h('h2', null, 'Who speaks with which voice'));
+    /* --- Portuguese help --- */
+    var ptSec = section('Portuguese help', 'Ajuda em português');
+    var ptSeg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Portuguese help' });
+    var ptYes = h('button', { type: 'button', 'aria-pressed': ptOn() ? 'true' : 'false' }, 'On · Ligada');
+    var ptNo = h('button', { type: 'button', 'aria-pressed': ptOn() ? 'false' : 'true' }, 'Off · Desligada');
+    ptYes.addEventListener('click', function () { store.settings.pt = true; save(); render(); });
+    ptNo.addEventListener('click', function () { store.settings.pt = false; save(); render(); });
+    add(ptSeg, [ptYes, ptNo]);
+    add(ptSec, [
+      h('p', null, 'Show translations and explanations in Brazilian Portuguese. Turn it off when you feel ready.'),
+      h('p', { class: 'pt', lang: 'pt-BR' }, 'Mostra traduções e explicações em português. Desligue quando se sentir pronta.'),
+      ptSeg]);
+    main.appendChild(ptSec);
+
+    /* --- who speaks --- */
+    var castSec = section('Who speaks with which voice', 'Quem fala com qual voz');
     var cast = h('div', { class: 'cast' });
     castSec.appendChild(cast);
     main.appendChild(castSec);
 
-    function sampleFor(who) {
-      for (var s = 0; s < stops.length; s++) {
-        var d = stops[s].dialogue;
-        if (!d) continue;
-        for (var k = 0; k < d.lines.length; k++) if (d.lines[k].who === who) return d.lines[k].say || d.lines[k].t;
-      }
-      return 'Hello, how can I help you?';
-    }
-
     function paintDynamic() {
+      var st = SP.status();
       var n = SP.voiceCount();
-      status.textContent = !SP.hasTTS ? 'This browser can’t speak. Try Safari on iPhone or Chrome on Android.'
-        : n ? 'Your device has ' + n + ' voices we can use.' : 'Looking for voices on this device…';
+      var srcRecorded = store.settings.source !== 'device';
+      clear(status);
+      var lines = [];
+      if (srcRecorded && SP.hasRecorded) {
+        lines.push(st.media === 'broken'
+          ? ['Recorded voices can’t play in this browser, so we use the device voices.', 'As gravações não tocam neste navegador, então usamos as vozes do aparelho.']
+          : ['Recorded voices are ready.', 'As vozes gravadas estão prontas.']);
+      }
+      if (!srcRecorded || st.media === 'broken') {
+        lines.push(!SP.hasTTS ? ['This browser has no device voices.', 'Este navegador não tem vozes do aparelho.']
+          : n ? ['Your device has ' + n + ' voices.', 'Seu aparelho tem ' + n + ' vozes.'] : ['Looking for voices on this device…', 'Procurando vozes neste aparelho…']);
+      }
+      if (st.blocked) lines.push(['The browser is waiting for a tap before it plays sound.', 'O navegador está esperando um toque para tocar o som.']);
+      lines.forEach(function (l) { add(status, [h('p', { class: 'muted' }, l[0]), pt(l[1])]); });
 
+      clear(srcList);
+      SOURCES.forEach(function (s) {
+        var input = h('input', { type: 'radio', name: 'source', id: 'source-' + s.key, value: s.key });
+        input.checked = (store.settings.source || 'recorded') === s.key;
+        input.addEventListener('change', function () {
+          store.settings.source = s.key; save();
+          SP.setOptions({ source: s.key });
+          paintDynamic();
+        });
+        srcList.appendChild(h('label', { class: 'accent', for: 'source-' + s.key }, input,
+          h('span', { class: 'accent-main' },
+            h('span', { class: 'accent-title' }, s.label, s.note ? h('span', { class: 'badge note' }, s.note) : null),
+            h('span', { class: 'accent-desc' }, s.desc),
+            pt(s.descPt, 'span', 'block'))));
+      });
+
+      accentWrap.hidden = srcRecorded;
       clear(accentList);
       ACCENT_CHOICES.forEach(function (a) {
         var avail = a.key === 'mixed' ? n > 0 : SP.available(a.key);
@@ -1392,10 +1558,14 @@
       Object.keys(C.characters).forEach(function (who) {
         if (who === 'teacher') return;
         var ch = C.characters[who];
-        var v = SP.voiceFor(who);
-        var name = v && v.voice ? v.voice.name + ' (' + v.voice.lang + ')' : 'Default voice';
+        var name;
+        if (srcRecorded && SP.hasRecorded && st.media !== 'broken') name = SP.recordedLabel(who) || 'Recorded voice';
+        else {
+          var v = SP.voiceFor(who);
+          name = v && v.voice ? v.voice.name + ' (' + v.voice.lang + ')' : 'Default voice';
+        }
         var play = h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Play a sample: ' + ch.name }, icon('play'));
-        play.addEventListener('click', function () { SP.say(sampleFor(who), who); });
+        play.addEventListener('click', function () { SP.say(Items.SAMPLE, who); });
         cast.appendChild(h('div', { class: 'cast-row' },
           avatarOf(who),
           h('span', { class: 'cast-main' }, h('span', { class: 'cast-name' }, ch.name), h('span', { class: 'cast-voice' }, name)),
@@ -1406,19 +1576,49 @@
     SP.onChange(paintDynamic);
     cleanup.push(function () { SP.offChange(paintDynamic); });
 
+    /* --- offline --- */
+    if (SP.hasRecorded && navigator.serviceWorker && navigator.serviceWorker.controller) {
+      var offSec = section('Use it on the plane', 'Use no avião');
+      var offBtn = h('button', { class: 'btn', type: 'button' }, icon('download'), 'Save all lessons for offline use');
+      var offMsg = h('p', { class: 'muted' }, '');
+      offBtn.addEventListener('click', function () {
+        var names = SP.packNames();
+        var done = 0, failed = 0;
+        offBtn.disabled = true;
+        offMsg.textContent = 'Saving… 0 of ' + names.length;
+        names.forEach(function (n) {
+          SP.loadPack(n, function (ok) {
+            done++;
+            if (!ok) failed++;
+            offMsg.textContent = done < names.length ? 'Saving… ' + done + ' of ' + names.length
+              : failed ? 'Some lessons could not be saved. Check the internet and try again.' : 'Done! All lessons and sounds work without internet now.';
+            if (done === names.length) offBtn.disabled = false;
+          });
+        });
+      });
+      add(offSec, [h('p', null, 'Download all the sounds so the lessons also work without internet, for example on the plane.'),
+        pt('Baixe todos os sons para as lições funcionarem também sem internet, por exemplo no avião.'),
+        h('div', { class: 'controls' }, offBtn), offMsg]);
+      main.appendChild(offSec);
+    }
+
     main.appendChild(h('section', { class: 'panel' },
-      h('h2', null, 'Get better voices'),
+      h('h2', null, 'Better device voices'),
+      h('p', null, 'Only needed for “Device voices”.'),
       h('ul', { class: 'plain-list' },
-        h('li', null, h('strong', null, 'iPhone / iPad: '), 'Settings → Accessibility → Spoken Content → Voices → English. Download an “Enhanced” voice. For other accents, also download English (India) and Arabic voices.'),
-        h('li', null, h('strong', null, 'Android: '), 'Settings → search “Text-to-speech” → Google engine settings → Install voice data. Add English (India) and Arabic.'),
-        h('li', null, h('strong', null, 'Computer: '), 'Microsoft Edge has the most natural voices, including Indian English and Arabic.')),
+        h('li', null, h('strong', null, 'iPhone / iPad: '), 'Settings → Accessibility → Spoken Content → Voices → English. Download an “Enhanced” voice, and English (India) or Arabic voices for other accents.'),
+        h('li', null, h('strong', null, 'Android: '), 'Settings → search “Text-to-speech” → Google engine settings → Install voice data.'),
+        h('li', null, h('strong', null, 'Computer: '), 'Microsoft Edge has very natural voices, including Indian English and Arabic.')),
       h('p', { class: 'muted small' }, 'After you install a voice, close the browser completely and open this website again.')));
 
     main.appendChild(h('section', { class: 'panel' },
       h('h2', null, 'Speaking practice'),
       h('p', null, SP.hasRec
         ? 'Tap “Say it” next to your sentences, then speak. The website checks your words. It needs the microphone and an internet connection.'
-        : 'This browser can’t listen to your voice, so “Say it” is hidden. Chrome, Edge and Safari can do it.')));
+        : 'This browser can’t listen to your voice, so “Say it” is hidden. Chrome, Edge and Safari can do it.'),
+      pt(SP.hasRec
+        ? 'Toque em “Say it” ao lado das suas frases e fale. O site confere as palavras. Precisa do microfone e de internet.'
+        : 'Este navegador não consegue ouvir sua voz, por isso o “Say it” fica escondido. Chrome, Edge e Safari conseguem.')));
 
     var reset = h('button', { class: 'btn danger', type: 'button' }, 'Reset my progress');
     var armed = false, armT = null;
@@ -1439,6 +1639,7 @@
     main.appendChild(h('section', { class: 'panel' },
       h('h2', null, 'Progress'),
       h('p', null, 'Your progress is saved in this browser only.'),
+      pt('Seu progresso fica salvo apenas neste navegador.'),
       reset));
 
     root.appendChild(main);
@@ -1447,7 +1648,7 @@
 
   /* ================================================================ start */
 
-  SP.init(C.characters, { accent: store.settings.accent, slow: !!store.settings.slow });
+  SP.init(C.characters, { accent: store.settings.accent, slow: !!store.settings.slow, source: store.settings.source || 'recorded' });
   render();
 
   try {
