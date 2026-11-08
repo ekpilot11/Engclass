@@ -1,8 +1,13 @@
 {
   "elevenlabs": {
     "model": "eleven_multilingual_v2",
-    "settings": { "stability": 0.5, "similarity_boost": 0.75, "style": 0.0, "use_speaker_boost": true, "speed": 0.92 },
-    "packs": [],
-    "voices": {}
+    "settings": { "speed": 0.92 },
+    "packs": ["passport"],
+    "packsLabel": "the Passport control lesson",
+    "voices": {
+      "officer": { "id": "xa8eOqmKc5EbIYyKGw0u", "label": "Emirati (Arabic-accented English, ElevenLabs)" },
+      "you": { "id": "Z0QKopwR1e0SJMnL0DU0", "label": "Ana (Brazilian-accented English, ElevenLabs)" },
+      "teacher": { "id": "Xb7hH8MSUJpSbSDYk0k2", "label": "Alice (British English, ElevenLabs)" }
+    }
   }
 }

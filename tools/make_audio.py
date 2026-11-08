@@ -190,7 +190,7 @@ def main():
     el_used = {unique[k]['who'] for k, e in engine.items() if e[0] == 'elevenlabs'}
     for who in el_used:
         voice = el['voices'][who]
-        where = '' if '*' in el['packs'] else ' in ' + ', '.join(el['packs'])
+        where = '' if '*' in el['packs'] else ' in ' + el.get('packsLabel', ', '.join(el['packs']))
         labels[who] = f"{voice.get('label', 'ElevenLabs voice')}{where}; elsewhere {labels.get(who, 'Kokoro')}" if where else voice.get('label', 'ElevenLabs voice')
     index = {
         'packs': pack_files,
