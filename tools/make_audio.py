@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 """
-Hello Dubai: record every sentence with the Kokoro voice model, so the website
-has real audio files instead of depending on the phone's speech engine.
+Hello Dubai: record every sentence, so the website has real audio files instead of
+depending on the phone's speech engine.
+
+Two engines:
+- Kokoro (free, runs here): British and American voices.
+- ElevenLabs (tools/voices.json): real accents (Arabic, Indian, Filipino…) for the lessons
+  listed there. Uses tools/elevenlabs.py; the API key is never stored in this project.
+  --max-chars stops a run that would use more ElevenLabs characters than expected.
 
 Setup (once):
     python3 -m venv .venv && .venv/bin/pip install kokoro-onnx soundfile
@@ -16,6 +22,7 @@ Run:
 Output: audio/pack-<stop>.js (MP3 clips as base64) and audio/index.js.
 Clips are cached in tools/.audio-cache, so only new or changed sentences are recorded.
 """
+import argparse
 import base64
 import hashlib
 import json
@@ -26,8 +33,8 @@ import tempfile
 
 import numpy as np
 import soundfile as sf
-from kokoro_onnx import Kokoro
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CACHE = os.path.join(ROOT, 'tools', '.audio-cache')
 OUT = os.path.join(ROOT, 'audio')
@@ -82,26 +89,74 @@ def ffmpeg_mp3(wav_path, mp3_path, fx):
     subprocess.run(cmd, check=True)
 
 
+def load_config():
+    """tools/voices.json: which lessons use ElevenLabs voices, and which voice each person has."""
+    path = os.path.join(ROOT, 'tools', 'voices.json')
+    cfg = json.load(open(path, encoding='utf-8')) if os.path.exists(path) else {}
+    el = cfg.get('elevenlabs') or {}
+    el.setdefault('voices', {})
+    el.setdefault('packs', [])
+    el.setdefault('model', 'eleven_multilingual_v2')
+    el.setdefault('settings', {})
+    return el
+
+
+def plan(unique, packs_of, el):
+    """Decide the engine and the cache file of every sentence."""
+    out = {}
+    for k, it in unique.items():
+        voice = el['voices'].get(it['who'])
+        if voice and voice.get('id') and (packs_of[k] & set(el['packs']) or '*' in el['packs']):
+            sig = json.dumps([voice['id'], el['model'], el['settings'], it['text'], it['fx']], sort_keys=True)
+            out[k] = ('elevenlabs', voice['id'], f"el-{hashlib.sha1(sig.encode()).hexdigest()[:16]}.mp3")
+        else:
+            out[k] = ('kokoro', None, f'{VERSION}-{k}.mp3')
+    return out
+
+
 def main():
-    items_path, model_dir = sys.argv[1], sys.argv[2]
-    items = json.load(open(items_path, encoding='utf-8'))
+    ap = argparse.ArgumentParser()
+    ap.add_argument('items')
+    ap.add_argument('kokoro_dir', help='folder with kokoro-v1.0.onnx and voices-v1.0.bin')
+    ap.add_argument('--max-chars', type=int, default=3000,
+                    help='stop before sending more than this many characters to ElevenLabs in one run')
+    a = ap.parse_args()
+    items = json.load(open(a.items, encoding='utf-8'))
     os.makedirs(CACHE, exist_ok=True)
     os.makedirs(OUT, exist_ok=True)
-    kokoro = Kokoro(os.path.join(model_dir, 'kokoro-v1.0.onnx'), os.path.join(model_dir, 'voices-v1.0.bin'))
+    el = load_config()
 
-    unique = {}
+    unique, packs_of = {}, {}
     for it in items:
         unique.setdefault(it['key'], it)
-    todo = [it for k, it in unique.items() if not os.path.exists(os.path.join(CACHE, f"{VERSION}-{k}.mp3"))]
-    print(f'{len(unique)} sentences, {len(todo)} to record', flush=True)
+        packs_of.setdefault(it['key'], set()).add(it['pack'])
+    engine = plan(unique, packs_of, el)
+    todo = [it for k, it in unique.items() if not os.path.exists(os.path.join(CACHE, engine[k][2]))]
+    el_chars = sum(len(it['text']) for it in todo if engine[it['key']][0] == 'elevenlabs')
+    print(f'{len(unique)} sentences, {len(todo)} to record ({el_chars} characters on ElevenLabs)', flush=True)
+    if el_chars > a.max_chars:
+        sys.exit(f'Stopped: {el_chars} ElevenLabs characters is more than --max-chars {a.max_chars}.')
 
+    kokoro = None
     with tempfile.TemporaryDirectory() as tmp:
         for n, it in enumerate(todo, 1):
-            voice, lang, _ = VOICES.get(it['who'], VOICES['teacher'])
-            samples, rate = kokoro.create(it['text'], voice=voice, speed=SPEED, lang=lang)
+            kind, voice_id, fname = engine[it['key']]
             wav = os.path.join(tmp, 'clip.wav')
+            if kind == 'elevenlabs':
+                import elevenlabs  # tools/elevenlabs.py
+                mp3 = os.path.join(tmp, 'el.mp3')
+                with open(mp3, 'wb') as f:
+                    f.write(elevenlabs.tts(voice_id, it['text'], el['model'], el['settings']))
+                subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', mp3, '-ac', '1', '-ar', '24000', wav], check=True)
+                samples, rate = sf.read(wav)
+            else:
+                if kokoro is None:
+                    from kokoro_onnx import Kokoro
+                    kokoro = Kokoro(os.path.join(a.kokoro_dir, 'kokoro-v1.0.onnx'), os.path.join(a.kokoro_dir, 'voices-v1.0.bin'))
+                voice, lang, _ = VOICES.get(it['who'], VOICES['teacher'])
+                samples, rate = kokoro.create(it['text'], voice=voice, speed=SPEED, lang=lang)
             sf.write(wav, normalise(samples), rate)
-            ffmpeg_mp3(wav, os.path.join(CACHE, f"{VERSION}-{it['key']}.mp3"), it['fx'])
+            ffmpeg_mp3(wav, os.path.join(CACHE, fname), it['fx'])
             if n % 25 == 0 or n == len(todo):
                 print(f'  recorded {n}/{len(todo)}', flush=True)
 
@@ -115,7 +170,7 @@ def main():
     for name, entries in sorted(packs.items()):
         data = {}
         for k in sorted(entries):
-            with open(os.path.join(CACHE, f'{VERSION}-{k}.mp3'), 'rb') as f:
+            with open(os.path.join(CACHE, engine[k][2]), 'rb') as f:
                 data[k] = base64.b64encode(f.read()).decode('ascii')
             keys_index.setdefault(k, []).append(name)
         body = json.dumps(data, separators=(',', ':'))
@@ -131,10 +186,17 @@ def main():
         if fname.startswith('pack-') and fname[5:-3] not in packs:
             os.remove(os.path.join(OUT, fname))
 
+    labels = {who: label for who, (_, _, label) in VOICES.items()}
+    el_used = {unique[k]['who'] for k, e in engine.items() if e[0] == 'elevenlabs'}
+    for who in el_used:
+        voice = el['voices'][who]
+        where = '' if '*' in el['packs'] else ' in ' + ', '.join(el['packs'])
+        labels[who] = f"{voice.get('label', 'ElevenLabs voice')}{where}; elsewhere {labels.get(who, 'Kokoro')}" if where else voice.get('label', 'ElevenLabs voice')
     index = {
         'packs': pack_files,
         'keys': keys_index,
-        'voices': {who: label for who, (_, _, label) in VOICES.items()},
+        'voices': labels,
+        'credits': (['Voices by ElevenLabs'] if el_used else []) + ['Voices by Kokoro (Apache-2.0)'],
     }
     with open(os.path.join(OUT, 'index.js'), 'w', encoding='utf-8') as f:
         f.write('window.HD_AUDIO = ' + json.dumps(index, separators=(',', ':')) + ';\n')

@@ -264,9 +264,31 @@
     return h('div', { class: 'instr' }, h('p', null, en), pt(ptText));
   }
 
+  /* Lesson pictures (img/index.js). Missing or broken pictures show the fallback (an emoji) instead. */
+  var IMG = window.HD_IMAGES || {};
+  var Keys = window.HDImageKeys;
+  function hasPic(key) { return !!IMG[key]; }
+  function pic(key, alt, fallback, cls) {
+    var src = IMG[key];
+    if (!src) return fallback;
+    var size = Keys.SIZES[Keys.kind(key)] || [400, 400];
+    var img = h('img', { src: src, alt: alt || '', class: cls || null, loading: 'lazy', decoding: 'async', width: size[0], height: size[1] });
+    img.addEventListener('error', function () {
+      if (!img.parentNode) return;
+      var fb = typeof fallback === 'string' ? document.createTextNode(fallback) : fallback;
+      if (fb) img.parentNode.replaceChild(fb, img); else img.parentNode.removeChild(img);
+    });
+    return img;
+  }
+
   function avatarOf(who) {
     var ch = C.characters[who] || { name: who, avatar: '🙂' };
-    return h('span', { class: 'avatar', 'aria-hidden': 'true' }, ch.avatar);
+    var key = Keys.person(who);
+    return h('span', { class: 'avatar' + (hasPic(key) ? ' has-img' : ''), 'aria-hidden': 'true' }, pic(key, '', ch.avatar));
+  }
+  function sceneThumb(stop, cls) {
+    var key = Keys.scene(stop);
+    return hasPic(key) ? pic(key, '', stop.icon, cls) : stop.icon;
   }
 
   /* Chat bubble used by "Listen" and "Your turn". */
@@ -392,10 +414,17 @@
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeOverlay(); });
 
   /* ---------- signs ---------- */
+  function pictogram(id, fallback) {
+    var art = window.HD_PICTOGRAMS && window.HD_PICTOGRAMS[id];
+    if (!art) return fallback;
+    var s = h('span', { class: 'picto' });
+    s.innerHTML = '<svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">' + art + '</svg>';
+    return s;
+  }
   function signEl(id, extra) {
     var s = C.signs[id];
     return h('span', { class: 'sign k-' + s.kind + (extra ? ' ' + extra : '') },
-      h('span', { class: 'sign-pic' + (s.kind === 'rule' ? ' no' : ''), 'aria-hidden': 'true' }, s.e),
+      h('span', { class: 'sign-pic' + (s.kind === 'rule' ? ' no' : ''), 'aria-hidden': 'true' }, pictogram(id, s.e)),
       h('span', { class: 'sign-words' },
         h('span', { class: 'sign-en' }, s.en),
         s.ar ? h('span', { class: 'sign-ar', lang: 'ar', dir: 'rtl' }, s.ar) : null),
@@ -410,7 +439,7 @@
   function stampEl(stop, iso, big) {
     return h('div', { class: 'stamp' + (big ? ' big' : '') },
       h('span', { class: 'stamp-top' }, stop.journey.id === 'flight' ? 'In flight' : 'DXB · Dubai'),
-      h('span', { class: 'stamp-icon', 'aria-hidden': 'true' }, stop.icon),
+      h('span', { class: 'stamp-icon', 'aria-hidden': 'true' }, sceneThumb(stop)),
       h('span', { class: 'stamp-name' }, stop.title),
       h('span', { class: 'stamp-date' }, stampDate(iso)));
   }
@@ -486,7 +515,7 @@
         : h('span', { class: 'br-status st-done' }, icon('check'), 'Done');
       return h('a', { class: 'board-row', href: '#' + s.id },
         h('span', { class: 'br-num' }, (i < 9 ? '0' : '') + (i + 1)),
-        h('span', { class: 'br-ico', 'aria-hidden': 'true' }, s.icon),
+        h('span', { class: 'br-ico', 'aria-hidden': 'true' }, sceneThumb(s)),
         h('span', { class: 'br-main' }, h('span', { class: 'br-title' }, s.title),
           h('span', { class: 'br-sub' }, ptOn() ? s.pt : s.sub)),
         status);
@@ -509,7 +538,7 @@
         var has = !!store.stamps[s.id];
         return h('a', { class: 'mini-stamp' + (has ? ' got' : ''), href: '#' + s.id, title: s.title,
           'aria-label': s.title + (has ? ': stamp collected' : ': no stamp yet') },
-          h('span', { 'aria-hidden': 'true' }, s.icon));
+          h('span', { 'aria-hidden': 'true' }, sceneThumb(s)));
       })),
       h('p', { class: 'muted small' }, 'Finish every activity at a stop to get its stamp.'),
       pt('Termine todas as atividades de uma etapa para ganhar o carimbo.', 'p', 'small'));
@@ -532,12 +561,15 @@
         h('h1', null, stop.title),
         stop.ar ? h('p', { class: 'ss-ar', lang: 'ar', dir: 'rtl' }, stop.ar) : null,
         ptOn() ? h('p', { class: 'ss-pt', lang: 'pt-BR' }, stop.pt) : null),
-      h('span', { class: 'ss-tile', 'aria-hidden': 'true' }, stop.icon)));
+      h('span', { class: 'ss-tile', 'aria-hidden': 'true' }, sceneThumb(stop))));
 
     var listenBtn = h('button', { class: 'chip-btn', type: 'button' }, icon('volume'), h('span', null, 'Listen'));
     listenBtn.addEventListener('click', function () { SP.say(stop.intro, 'teacher'); });
+    var sceneKey = Keys.scene(stop);
     main.appendChild(h('section', { class: 'scene' },
-      h('div', { class: 'scene-art', 'aria-hidden': 'true' }, stop.scene),
+      hasPic(sceneKey)
+        ? h('figure', { class: 'scene-figure' }, pic(sceneKey, stop.intro, h('div', { class: 'scene-art', 'aria-hidden': 'true' }, stop.scene)))
+        : h('div', { class: 'scene-art', 'aria-hidden': 'true' }, stop.scene),
       h('p', { class: 'lede' }, stop.intro),
       pt(stop.introPt),
       h('div', null, listenBtn)));
@@ -690,7 +722,7 @@
       var grid = h('div', { class: 'vgrid' });
       vocab.forEach(function (v) {
         var card = h('button', { class: 'vcard', type: 'button', 'aria-expanded': 'false' },
-          h('span', { class: 'v-emoji', 'aria-hidden': 'true' }, v.e),
+          pic(Keys.vocab(ctx.stop, v), '', h('span', { class: 'v-emoji', 'aria-hidden': 'true' }, v.e), 'v-img'),
           h('span', { class: 'v-word' }, v.w),
           ptOn() && v.pt ? h('span', { class: 'v-pt', lang: 'pt-BR' }, v.pt) : null,
           h('span', { class: 'v-more' },
@@ -739,7 +771,7 @@
         opts.forEach(function (o) {
           var label = h('span', { class: 'pic-label' }, '');
           var tile = h('button', { class: 'pic', type: 'button', 'aria-label': 'Picture ' + o.w },
-            h('span', { class: 'pic-emoji', 'aria-hidden': 'true' }, o.e), label);
+            pic(Keys.vocab(ctx.stop, o), '', h('span', { class: 'pic-emoji', 'aria-hidden': 'true' }, o.e), 'pic-img'), label);
           tile.addEventListener('click', function () {
             if (solved) return;
             label.textContent = o.w;
@@ -1447,6 +1479,7 @@
     var accentList = h('div', { class: 'accent-list', role: 'radiogroup', 'aria-label': 'Accent' });
     accentWrap.appendChild(accentList);
     srcSec.appendChild(accentWrap);
+    if (SP.credits().length) srcSec.appendChild(h('p', { class: 'muted small' }, SP.credits().join(' · ') + '.'));
     main.appendChild(srcSec);
 
     var SOURCES = [
@@ -1583,17 +1616,21 @@
       var offMsg = h('p', { class: 'muted' }, '');
       offBtn.addEventListener('click', function () {
         var names = SP.packNames();
+        var urls = Object.keys(IMG).map(function (k) { return IMG[k]; });
+        var total = names.length + urls.length;
         var done = 0, failed = 0;
+        function step(ok) {
+          done++;
+          if (!ok) failed++;
+          offMsg.textContent = done < total ? 'Saving… ' + done + ' of ' + total
+            : failed ? 'Some lessons could not be saved. Check the internet and try again.' : 'Done! All lessons, sounds and pictures work without internet now.';
+          if (done === total) offBtn.disabled = false;
+        }
         offBtn.disabled = true;
-        offMsg.textContent = 'Saving… 0 of ' + names.length;
-        names.forEach(function (n) {
-          SP.loadPack(n, function (ok) {
-            done++;
-            if (!ok) failed++;
-            offMsg.textContent = done < names.length ? 'Saving… ' + done + ' of ' + names.length
-              : failed ? 'Some lessons could not be saved. Check the internet and try again.' : 'Done! All lessons and sounds work without internet now.';
-            if (done === names.length) offBtn.disabled = false;
-          });
+        offMsg.textContent = 'Saving… 0 of ' + total;
+        names.forEach(function (n) { SP.loadPack(n, step); });
+        urls.forEach(function (u) {
+          fetch(u).then(function (r) { step(r.ok); }, function () { step(false); });
         });
       });
       add(offSec, [h('p', null, 'Download all the sounds so the lessons also work without internet, for example on the plane.'),

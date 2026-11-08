@@ -71,6 +71,7 @@ window.HD_CONTENT.journeys.push({
       icon: "🛂",
       sub: "Talk to the officer",
       scene: "👮‍♂️ 📘 📷",
+      imgScene: "passport control in the arrivals hall of Dubai airport. The family from the reference image (the mother, the grandmother, the nanny and the toddler twins, a boy and a girl) stands together at a passport control counter. The mother hands over the passports. Behind the counter sits a friendly Emirati officer with a short black beard, in a white kandura and white ghutra, with a small camera on the counter. A bright modern airport hall with big windows in the background. Calm and welcoming.",
       intro: "The officer checks the passports of the whole family. Answer simple questions, explain who everybody is, and ask him to repeat if you don’t understand.",
       introPt: "O oficial verifica os passaportes de toda a família. Responda perguntas simples, explique quem é cada pessoa e peça para ele repetir se não entender.",
       tips: [
@@ -84,19 +85,29 @@ window.HD_CONTENT.journeys.push({
           pt: "Deixe os vistos de todos à mão: o seu, o das crianças, o da sua mãe e o da babá." }
       ],
       vocab: [
-        { e: "📘", w: "passport", pt: "passaporte", ex: "Here is my passport.", exPt: "Aqui está meu passaporte." },
+        { e: "📘", w: "passport", pt: "passaporte", ex: "Here is my passport.", exPt: "Aqui está meu passaporte.",
+          img: "a closed dark-blue passport booklet with a simple gold emblem on the cover and no writing" },
         { e: "📄", w: "visa", pt: "visto", ex: "This is my residence visa.", exPt: "Este é meu visto de residência.",
-          note: "Your first visa may be called an “entry permit”.", notePt: "Seu primeiro visto pode se chamar “entry permit” (autorização de entrada)." },
-        { e: "👮‍♂️", w: "officer", pt: "oficial, agente", ex: "The officer checks our passports.", exPt: "O oficial verifica nossos passaportes." },
+          note: "Your first visa may be called an “entry permit”.", notePt: "Seu primeiro visto pode se chamar “entry permit” (autorização de entrada).",
+          img: "an official residence visa: a sheet of paper with a small photo of a woman, a round official stamp and a few grey lines instead of writing, held in a hand" },
+        { e: "👮‍♂️", w: "officer", pt: "oficial, agente", ex: "The officer checks our passports.", exPt: "O oficial verifica nossos passaportes.",
+          img: "a friendly Emirati passport control officer with a short black beard, in a white kandura and white ghutra, sitting in a passport control booth and looking at an open passport" },
         { e: "🚶‍♀️🚶‍♂️🚶", w: "queue", pt: "fila", ex: "Please wait in the queue.", exPt: "Por favor, espere na fila.",
-          note: "American English: line", notePt: "Em inglês americano: line" },
-        { e: "📷", w: "camera", pt: "câmera", ex: "Please look at the camera.", exPt: "Por favor, olhe para a câmera." },
+          note: "American English: line", notePt: "Em inglês americano: line",
+          img: "a short line of four travellers with suitcases waiting one behind the other at an airport, seen from the side" },
+        { e: "📷", w: "camera", pt: "câmera", ex: "Please look at the camera.", exPt: "Por favor, olhe para a câmera.",
+          img: "a small round security camera on a short stand on an airport counter, the lens pointing straight at the viewer" },
         { e: "🎯", w: "purpose", pt: "motivo", ex: "What is the purpose of your visit?", exPt: "Qual é o motivo da sua visita?",
-          note: "= the reason", notePt: "= o motivo, a razão" },
-        { e: "🏠", w: "live", pt: "morar", ex: "We are going to live in Dubai.", exPt: "Nós vamos morar em Dubai." },
-        { e: "👦👧", w: "twins", pt: "gêmeos", ex: "They are twins: a boy and a girl.", exPt: "Eles são gêmeos: um menino e uma menina." },
-        { e: "👩‍🍼", w: "nanny", pt: "babá", ex: "She is our nanny.", exPt: "Ela é nossa babá." },
-        { e: "🗣️", w: "translate", pt: "traduzir", ex: "I can translate for my mother.", exPt: "Eu posso traduzir para a minha mãe." }
+          note: "= the reason", notePt: "= o motivo, a razão",
+          img: "the reason for a trip: a mother carrying a cardboard moving box with a simple house symbol on it, next to suitcases, with the Dubai skyline in the background" },
+        { e: "🏠", w: "live", pt: "morar", ex: "We are going to live in Dubai.", exPt: "Nós vamos morar em Dubai.",
+          img: "a family's new home: a modern apartment building in Dubai with balconies and palm trees in warm evening light" },
+        { e: "👦👧", w: "twins", pt: "gêmeos", ex: "They are twins: a boy and a girl.", exPt: "Eles são gêmeos: um menino e uma menina.",
+          img: "the two toddler twins from the reference image, the boy and the girl, holding hands and smiling", imgFamily: true },
+        { e: "👩‍🍼", w: "nanny", pt: "babá", ex: "She is our nanny.", exPt: "Ela é nossa babá.",
+          img: "the nanny from the reference image holding the hands of the two toddler twins", imgFamily: true },
+        { e: "🗣️", w: "translate", pt: "traduzir", ex: "I can translate for my mother.", exPt: "Eu posso traduzir para a minha mãe.",
+          img: "the mother from the reference image translating for the grandmother from the reference image: the mother turns to her mother and explains something kindly, with two empty speech bubbles between them", imgFamily: true }
       ],
       dialogue: {
         lines: [

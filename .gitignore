@@ -1,3 +1,4 @@
 tools/.audio-cache/
+tools/.image-cache/
 .venv/
 __pycache__/

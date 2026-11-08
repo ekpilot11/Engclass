@@ -580,6 +580,7 @@
     packNames: function () { return AUDIO ? Object.keys(AUDIO.packs) : []; },
     packState: function (name) { return packs[name] || 'none'; },
     recordedLabel: function (who) { return AUDIO && AUDIO.voices ? AUDIO.voices[who] || '' : ''; },
+    credits: function () { return AUDIO && AUDIO.credits ? AUDIO.credits.slice() : []; },
     voiceCount: function () { return state.voices.length; },
     voiceFor: function (who) { return state.cast[who] || null; },
     available: function (key) { return voicesForAccent(key).length > 0; },

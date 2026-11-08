@@ -1,0 +1,33 @@
+{
+  "style": "Friendly children's picture-book illustration in a modern flat style: soft rounded shapes, gentle shading, clean lines, warm desert palette (sand, soft yellow, teal, coral), simple uncluttered composition, kind expressions. IMPORTANT: absolutely no text, letters, numbers, words, signs with writing or logos anywhere in the image.",
+
+  "templates": {
+    "vocab": "{style} Subject: {subject}. Show only this subject, large, centered and easy to recognise, on a plain very light warm-beige background with nothing else.",
+    "scene": "{style} A wide scene: {subject} Match the characters exactly to the reference image (same faces, hair, skin and clothes) and keep the same illustration style.",
+    "person": "{style} A friendly head-and-shoulders portrait of {subject}, looking at the viewer, centered, on a plain soft light-teal background. Keep the same illustration style as the reference image.",
+    "sheet": "{style} Character sheet: five characters standing side by side in a row, full body, front view, same scale, evenly spaced, on a plain very light background: {subject}"
+  },
+
+  "family": {
+    "you": "the mother: a Brazilian woman in her mid-thirties with light-brown skin, long wavy dark-brown hair and a warm smile, wearing a teal blouse, beige trousers and white sneakers, with a small crossbody bag",
+    "boy": "her son, one of the twins: a two-year-old boy with curly light-brown hair, wearing a yellow t-shirt and blue shorts",
+    "girl": "her daughter, the other twin: a two-year-old girl with light-brown hair in two little pigtails, wearing a pink dress",
+    "grandma": "the grandmother: a Brazilian woman in her sixties with short silver hair and glasses, wearing a lilac cardigan and grey trousers",
+    "nanny": "the nanny: a woman in her forties with dark hair in a bun, wearing a light-blue tunic and dark trousers"
+  },
+
+  "people": {
+    "you": "the mother from the reference image (a Brazilian woman in her mid-thirties with long wavy dark-brown hair and a teal blouse)",
+    "officer": "an Emirati passport control officer: a man in his forties with a short black beard, wearing a white kandura and a white ghutra headdress",
+    "customs": "an Emirati customs officer: a woman wearing a black abaya and a black shayla headscarf",
+    "porter": "a South Asian airport porter: a man in his thirties in a dark-blue airport uniform",
+    "agent": "a Filipino baggage services agent: a woman in her twenties with her hair in a neat bun, wearing a navy uniform with a small scarf",
+    "info": "a South Asian woman working at an airport information desk, wearing a burgundy uniform blazer",
+    "marshal": "a South Asian taxi marshal: a man wearing a bright yellow high-visibility vest",
+    "driver": "a Pakistani taxi driver: a man in his forties with a beard, wearing a light-grey shirt",
+    "pilot": "an airline captain: a man in his fifties in a dark pilot uniform and captain's hat",
+    "crew": "a female flight attendant in an elegant dark-teal airline uniform",
+    "crew2": "a male flight attendant in a dark-teal waistcoat and tie",
+    "passenger": "a male passenger in his thirties with short hair and a casual jacket"
+  }
+}
