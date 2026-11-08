@@ -2,7 +2,7 @@
  * Hello Dubai — sound.
  *
  * 1. Recorded voices (default): every sentence was recorded in advance (tools/make_audio.py)
- *    and is played as an MP3. This works the same on every phone, also in silent mode in Safari.
+ *    and is played as an MP3, so it sounds the same on every phone and needs no speech engine.
  * 2. Device voices (fallback, or by choice): the phone's own speech engine (Web Speech API),
  *    with a choice of accents.
  * 3. "Say it": speech recognition, only where the browser supports it.
