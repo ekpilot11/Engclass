@@ -48,7 +48,11 @@ const jobs = [{
 
 Object.keys(S.people).forEach(who => {
   if (onlyPeople && onlyPeople.indexOf(who) < 0) return;
-  jobs.push({ key: Keys.person(who), kind: 'people', size: '1024x1024', refs: ['sheet'], prompt: fill(T.person, S.people[who]) });
+  // Most portraits use the family sheet as a style reference; people listed in peopleNoRef don't,
+  // because the model then copies the family's faces.
+  const noRef = (S.peopleNoRef || []).indexOf(who) >= 0;
+  jobs.push({ key: Keys.person(who), kind: 'people', size: '1024x1024', refs: noRef ? [] : ['sheet'],
+    prompt: fill(noRef ? T.personNoRef : T.person, S.people[who]) });
 });
 
 C.journeys.forEach(j => j.stops.forEach(stop => {
