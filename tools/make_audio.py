@@ -188,6 +188,7 @@ def main():
 
     labels = {who: label for who, (_, _, label) in VOICES.items()}
     el_used = {unique[k]['who'] for k, e in engine.items() if e[0] == 'elevenlabs'}
+    kokoro_used = any(e[0] == 'kokoro' for e in engine.values())
     for who in el_used:
         voice = el['voices'][who]
         where = '' if '*' in el['packs'] else ' in ' + el.get('packsLabel', ', '.join(el['packs']))
@@ -196,7 +197,7 @@ def main():
         'packs': pack_files,
         'keys': keys_index,
         'voices': labels,
-        'credits': (['Voices by ElevenLabs'] if el_used else []) + ['Voices by Kokoro (Apache-2.0)'],
+        'credits': (['Voices by ElevenLabs'] if el_used else []) + (['Voices by Kokoro (Apache-2.0)'] if kokoro_used else []),
     }
     with open(os.path.join(OUT, 'index.js'), 'w', encoding='utf-8') as f:
         f.write('window.HD_AUDIO = ' + json.dumps(index, separators=(',', ':')) + ';\n')

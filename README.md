@@ -37,7 +37,7 @@ There is also:
 
 **Recorded voices (default).** Every sentence (about 550) is recorded in advance and stored as MP3
 files inside `audio/`, so the sound is the same on every phone and doesn't depend on the phone's
-speech engine. Each lesson only downloads its own sounds (under 1 MB).
+speech engine. Each lesson only downloads its own sounds (about 1 MB).
 
 All lessons and the phrasebook are recorded with **ElevenLabs** voices with real accents, chosen by the
 family in a voice audition. The voices are listed in `tools/voices.json`:
