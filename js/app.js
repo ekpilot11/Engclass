@@ -1483,8 +1483,8 @@
     main.appendChild(srcSec);
 
     var SOURCES = [
-      { key: 'recorded', label: 'Recorded voices', note: 'Recommended', desc: 'Real recordings with British and American voices. They sound the same on every phone and don’t need the phone’s speech engine.',
-        descPt: 'Gravações com vozes britânicas e americanas. Soam iguais em qualquer celular e não dependem do sistema de voz do aparelho.' },
+      { key: 'recorded', label: 'Recorded voices', note: 'Recommended', desc: 'Real recordings with the accents you will hear in Dubai: Emirati officers, Indian and Filipino airport staff, British cabin crew. They sound the same on every phone.',
+        descPt: 'Gravações com os sotaques que você vai ouvir em Dubai: oficiais emiradenses, funcionários indianos e filipinos, tripulação britânica. Soam iguais em qualquer celular.' },
       { key: 'device', label: 'Device voices', desc: 'Your phone’s own voices. You can choose accents, also Indian English and an experimental Arabic accent.',
         descPt: 'As vozes do seu celular. Você pode escolher sotaques, inclusive inglês indiano e um sotaque árabe experimental.' }
     ];

@@ -39,11 +39,21 @@ There is also:
 files inside `audio/`, so the sound is the same on every phone and doesn't depend on the phone's
 speech engine. Each lesson only downloads its own sounds (under 1 MB).
 
-- **ElevenLabs** voices with real accents, chosen by the family in a voice audition: an Emirati passport
-  officer, Indian and Filipino airport staff, British cabin crew, and a Brazilian-accented voice for the
-  learner's own lines. The voices are listed in `tools/voices.json`.
-- **Kokoro** (open source, Apache-2.0) British and American voices are used for anything not recorded
-  with ElevenLabs.
+All lessons and the phrasebook are recorded with **ElevenLabs** voices with real accents, chosen by the
+family in a voice audition. The voices are listed in `tools/voices.json`:
+
+| Person | Voice |
+|--------|-------|
+| You (the learner's own lines) | Ana, Brazilian-accented English |
+| Teacher (tips, words) | Alice, British |
+| Passport officer / customs officer | Emirati man / Salma, Arabic-accented English |
+| Baggage porter, information desk, taxi marshal, taxi driver | Raju, Alisha, Viraj, Raju: Indian English |
+| Baggage services agent | Rachel, Filipino English |
+| Captain / flight attendants | George, British / Lily, British and Charlie, Australian |
+| Passenger on the plane | Chris, American |
+
+**Kokoro** (open source, Apache-2.0) British and American voices are used for any new sentence that is
+recorded without ElevenLabs.
 
 **Device voices (optional).** In Settings you can switch to the phone's own voices, which allows other accents:
 Dubai mix, British, American, Indian and an experimental Arabic accent. If a recording can't play

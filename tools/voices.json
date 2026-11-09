@@ -2,12 +2,21 @@
   "elevenlabs": {
     "model": "eleven_multilingual_v2",
     "settings": { "speed": 0.92 },
-    "packs": ["passport"],
-    "packsLabel": "the Passport control lesson",
+    "packs": ["*"],
     "voices": {
-      "officer": { "id": "xa8eOqmKc5EbIYyKGw0u", "label": "Emirati (Arabic-accented English, ElevenLabs)" },
-      "you": { "id": "Z0QKopwR1e0SJMnL0DU0", "label": "Ana (Brazilian-accented English, ElevenLabs)" },
-      "teacher": { "id": "Xb7hH8MSUJpSbSDYk0k2", "label": "Alice (British English, ElevenLabs)" }
+      "you":       { "id": "Z0QKopwR1e0SJMnL0DU0", "label": "Ana (Brazilian-accented English, ElevenLabs)" },
+      "teacher":   { "id": "Xb7hH8MSUJpSbSDYk0k2", "label": "Alice (British English, ElevenLabs)" },
+      "officer":   { "id": "xa8eOqmKc5EbIYyKGw0u", "label": "Emirati (Arabic-accented English, ElevenLabs)" },
+      "customs":   { "id": "aCChyB4P5WEomwRsOKRh", "label": "Salma (Arabic-accented English, ElevenLabs)" },
+      "porter":    { "id": "pzxut4zZz4GImZNlqQ3H", "label": "Raju (Indian English, ElevenLabs)" },
+      "agent":     { "id": "6AUOG2nbfr0yFEeI0784", "label": "Rachel (Filipino English, ElevenLabs)" },
+      "info":      { "id": "ftDdhfYtmfGP0tFlBYA1", "label": "Alisha (Indian English, ElevenLabs)" },
+      "marshal":   { "id": "Ock0AL5DBkvTUDePt4Hm", "label": "Viraj (Indian English, ElevenLabs)" },
+      "driver":    { "id": "3gsg3cxXyFLcGIfNbM6C", "label": "Raju (Indian English, ElevenLabs)" },
+      "pilot":     { "id": "JBFqnCBsd6RMkjVDRZzb", "label": "George (British English, ElevenLabs)" },
+      "crew":      { "id": "pFZP5JQG7iQjIQuC4Bku", "label": "Lily (British English, ElevenLabs)" },
+      "crew2":     { "id": "IKne3meq5aSn9XLyUdCD", "label": "Charlie (Australian English, ElevenLabs)" },
+      "passenger": { "id": "iP95p4xoKVk53GoZ742B", "label": "Chris (American English, ElevenLabs)" }
     }
   }
 }
