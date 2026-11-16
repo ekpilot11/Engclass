@@ -12,6 +12,7 @@
   var C = window.HD_CONTENT;
   var SP = window.HDSpeech;
   var Items = window.HDSpeechItems;
+  var GameKit = window.HDGame;
   var app = document.getElementById('app');
 
   /* ================================================================ helpers */
@@ -57,7 +58,8 @@
     retry: '<path d="M1 4v6h6"/><path d="M3.5 15a9 9 0 1 0 2.1-9.4L1 10"/>',
     info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
     globe: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10 15 15 0 0 1 4-10z"/>',
-    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>'
+    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>',
+    flame: '<path d="M12 2.5c.6 3.4 5.5 5.6 5.5 11.3a5.5 5.5 0 0 1-11 0c0-2.2 1-3.9 2.3-5.3.2 1.5.9 2.5 1.9 3 .2-3.2-.4-5.8 1.3-9z" fill="currentColor" stroke="none"/>'
   };
   function icon(name, cls) {
     var s = h('span', { class: 'ico' + (cls ? ' ' + cls : ''), 'aria-hidden': 'true' });
@@ -89,7 +91,10 @@
   /* ================================================================ storage */
 
   var KEY = 'hello-dubai-v1';
-  var store = { settings: { accent: 'mixed', slow: false, text: true, pt: true, source: 'recorded' }, progress: {}, stamps: {} };
+  var store = {
+    settings: { accent: 'mixed', slow: false, text: true, pt: true, source: 'recorded', goal: GameKit.DEFAULT_GOAL, sfx: true },
+    progress: {}, stamps: {}, game: {}
+  };
   (function load() {
     try {
       var raw = window.localStorage.getItem(KEY);
@@ -99,11 +104,17 @@
       if (d.settings) Object.keys(d.settings).forEach(function (k) { store.settings[k] = d.settings[k]; });
       if (d.progress && typeof d.progress === 'object') store.progress = d.progress;
       if (d.stamps && typeof d.stamps === 'object') store.stamps = d.stamps;
+      if (d.game && typeof d.game === 'object' && !Array.isArray(d.game)) store.game = d.game;
     } catch (e) { /* private mode or blocked storage: start fresh */ }
   })();
   function save() {
     try { window.localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) { /* ignore */ }
   }
+
+  /* Miles, the daily goal and the streak (js/game.js). */
+  var Game = GameKit.create(store.game, { save: save, goal: function () { return store.settings.goal; } });
+  GameKit.setSound(store.settings.sfx !== false);
+  var session = { earned: 0, goalReached: false, levelUp: null };   // the activity that is open now
 
   /* Portuguese help, shown when the setting is on. */
   function ptOn() { return store.settings.pt !== false; }
@@ -263,6 +274,45 @@
   function instr(en, ptText) {
     return h('div', { class: 'instr' }, h('p', null, en), pt(ptText));
   }
+
+  /* ---------- miles ---------- */
+
+  var AFTER_CHIME = 380;   // ms to wait before speaking, so the "right answer" sound doesn't cover the first word
+  function milesFor(firstTry) { return firstTry ? GameKit.MILES.first : GameKit.MILES.later; }
+  function earn(n) {
+    session.earned += n;
+    var r = Game.award(n);
+    if (r.goalReached) session.goalReached = true;
+    if (r.levelUp) session.levelUp = r.levelUp;
+  }
+  /* Call when she answers: plays the sound; a right answer gives miles and shows "+10" over the button. */
+  function mark(ok, firstTry, el) {
+    if (!ok) { GameKit.sfx('wrong'); return; }
+    var n = milesFor(firstTry);
+    earn(n);
+    GameKit.sfx('right');
+    floatMiles(el, n);
+  }
+  function floatMiles(el, n) {
+    if (!el || !el.getBoundingClientRect || GameKit.calm()) return;
+    var r = el.getBoundingClientRect();
+    var tag = h('span', { class: 'float-miles', 'aria-hidden': 'true' }, '+' + n);
+    tag.style.left = Math.round(r.left + r.width / 2) + 'px';
+    tag.style.top = Math.round(Math.max(76, r.top)) + 'px';
+    document.body.appendChild(tag);
+    setTimeout(function () { if (tag.parentNode) tag.parentNode.removeChild(tag); }, 1000);
+  }
+  /* The ring that fills up with today's miles. */
+  function goalRing(v, cls) {
+    var R = 26, L = 2 * Math.PI * R;
+    var el = h('span', { class: 'ring' + (v.goalDone ? ' full' : '') + (cls ? ' ' + cls : ''), 'aria-hidden': 'true' });
+    el.innerHTML = '<svg viewBox="0 0 64 64" focusable="false"><circle class="ring-bg" cx="32" cy="32" r="' + R + '"/>' +
+      (v.pct > 0 ? '<circle class="ring-fg" cx="32" cy="32" r="' + R + '" stroke-dasharray="' + (L * v.pct).toFixed(1) + ' ' + L.toFixed(1) + '" transform="rotate(-90 32 32)"/>' : '') + '</svg>';
+    el.appendChild(v.goalDone ? icon('check', 'ring-in') : h('span', { class: 'ring-in' }, Math.round(v.pct * 100) + '%'));
+    return el;
+  }
+  function daysLabel(n) { return n + (n === 1 ? ' day' : ' days') + ' in a row'; }
+  function daysLabelPt(n) { return n + (n === 1 ? ' dia seguido' : ' dias seguidos'); }
 
   /* Lesson pictures (img/index.js). Missing or broken pictures show the fallback (an emoji) instead. */
   var IMG = window.HD_IMAGES || {};
@@ -475,6 +525,7 @@
       h('div', { class: 'hero-actions' },
         h('a', { class: 'btn btn-primary', href: next.href }, next.label, icon('forward')))));
 
+    main.appendChild(flyerCard());
     main.appendChild(audioNotice());
     journeys.forEach(function (j) { main.appendChild(board(j)); });
     main.appendChild(stampsSection());
@@ -502,6 +553,36 @@
 
     root.appendChild(main);
     return root;
+  }
+
+  /* Today's miles, the streak and the level, as a frequent-flyer card. */
+  function flyerCard() {
+    var v = Game.view();
+    var left = Math.max(0, v.goal - v.today);
+    var status = v.goalDone ? ['Daily goal reached. See you tomorrow!', 'Meta do dia alcançada. Até amanhã!']
+      : v.today ? [left + ' miles to today’s goal', 'Faltam ' + left + ' milhas para a meta de hoje']
+      : ['Finish one activity to start your day', 'Termine uma atividade para começar o seu dia'];
+    return h('section', { class: 'flyer', 'aria-label': 'My miles today' },
+      h('div', { class: 'fc-top' },
+        goalRing(v),
+        h('div', { class: 'fc-main' },
+          h('p', { class: 'fc-label' }, 'Today', ptOn() ? h('span', { lang: 'pt-BR' }, ' · Hoje') : null),
+          h('p', { class: 'fc-miles' }, h('strong', null, String(v.today)), ' / ' + v.goal + ' miles')),
+        h('div', { class: 'fc-streak' + (v.streak ? ' on' : ''), title: daysLabel(v.streak) },
+          icon('flame'),
+          h('strong', null, String(v.streak)),
+          h('span', null, v.streak === 1 ? 'day' : 'days'))),
+      h('div', { class: 'fc-status' },
+        h('p', null, status[0]),
+        ptOn() ? h('p', { class: 'fc-pt', lang: 'pt-BR' }, status[1]) : null),
+      h('div', { class: 'fc-week', role: 'img', 'aria-label': daysLabel(v.streak) + '. The last 7 days.' }, v.week.map(function (d) {
+        return h('span', { class: 'fc-day' + (d.goal ? ' goal' : d.practised ? ' some' : '') + (d.today ? ' today' : '') },
+          h('span', { class: 'fc-dot' }, d.goal ? icon('check') : null),
+          h('span', { class: 'fc-letter' }, d.letter));
+      })),
+      h('p', { class: 'fc-level' },
+        h('span', { class: 'fc-tier tier-' + v.level.id }, v.level.name),
+        h('span', null, v.total + ' miles' + (v.level.next ? ' · ' + v.level.toNext + ' to ' + v.level.next.name : ''))));
   }
 
   function board(j) {
@@ -628,6 +709,7 @@
       stop: stop, act: act, body: body,
       finish: function (score, total) { showResult(ctx, score, total); }
     };
+    session = { earned: 0, goalReached: false, levelUp: null };
     RUN[act](ctx);
     root.appendChild(main);
     return root;
@@ -645,6 +727,8 @@
       store.stamps[ctx.stop.id] = new Date().toISOString();
       newStamp = true;
     }
+    earn(GameKit.MILES.finish);
+    var streak = Game.touch();
     save();
 
     var ratio = total ? score / total : 1;
@@ -667,11 +751,30 @@
       total ? h('p', { class: 'result-score' }, h('strong', null, score + ' of ' + total), ' correct the first time')
             : h('p', { class: 'result-score' }, 'Activity complete'),
       total && ratio < 1 ? h('p', { class: 'muted' }, 'Try again to improve. We keep your best score.') : null,
+      milesEarned(streak),
       h('div', { class: 'result-actions' },
         h('a', { class: 'btn btn-primary', href: next.href }, next.label, icon('forward')),
         retry)));
     window.scrollTo(0, 0);
     if (newStamp) later(function () { showStamp(ctx.stop); }, 400);
+    else {
+      GameKit.sfx('done');
+      if (session.goalReached || session.levelUp) GameKit.confetti();
+    }
+  }
+
+  /* On the result page: the miles of this activity, today's goal and the streak. */
+  function milesEarned(streak) {
+    var v = Game.view();
+    var lines = [];
+    if (session.goalReached) lines.push(['Daily goal reached!', 'Meta do dia alcançada!']);
+    if (session.levelUp) lines.push(['New level: ' + session.levelUp.name + ' member', 'Novo nível: ' + session.levelUp.pt]);
+    if (streak.grew && streak.n > 1) lines.push([daysLabel(streak.n) + '. Keep going!', daysLabelPt(streak.n) + '. Continue assim!']);
+    return h('div', { class: 'earned' },
+      h('p', { class: 'earned-miles' }, h('strong', null, '+' + session.earned), ' miles', ptOn() ? h('span', { class: 'pt-inline', lang: 'pt-BR' }, ' · milhas') : null),
+      h('div', { class: 'earned-goal' }, goalRing(v, 'sm'),
+        h('p', null, 'Today: ', h('strong', null, v.today + ' / ' + v.goal), ' miles')),
+      lines.map(function (l) { return h('p', { class: 'earned-news' }, h('strong', null, l[0]), ptOn() ? h('span', { class: 'pt-inline', lang: 'pt-BR' }, ' · ' + l[1]) : null); }));
   }
 
   function showStamp(stop) {
@@ -683,6 +786,8 @@
       pt('Novo carimbo no passaporte!'),
       h('p', null, 'You finished every activity in “' + stop.title + '”.'),
       btn));
+    GameKit.sfx('stamp');
+    GameKit.confetti();
   }
 
   function progressBar(i, n) {
@@ -778,6 +883,7 @@
             if (o === target) {
               solved = true;
               if (!tried) score++;
+              mark(true, !tried, tile);
               tile.classList.add('is-right');
               grid.querySelectorAll('.pic').forEach(function (b) { b.disabled = true; });
               word.hidden = false; showWord.hidden = true;
@@ -785,6 +891,7 @@
               later(next, 1300);
             } else {
               tried = true;
+              mark(false);
               tile.classList.add('is-wrong');
               tile.disabled = true;
               shake(tile);
@@ -896,6 +1003,7 @@
           if (solved) return;
           if (o === correct) {
             solved = true;
+            mark(true, !tried, btn);
             btn.classList.add('is-right');
             grid.querySelectorAll('.option').forEach(function (b) { b.disabled = true; });
             clear(fb);
@@ -904,6 +1012,7 @@
             if (answered === questions.length) onAll(firstTry, questions.length);
           } else {
             tried = true;
+            mark(false);
             btn.classList.add('is-wrong');
             btn.disabled = true;
             shake(btn);
@@ -1067,11 +1176,11 @@
     function update() { checkBtn.disabled = !blanks.every(function (b) { return !!b.value; }); }
 
     checkBtn.addEventListener('click', function () {
-      var right = 0;
+      var right = 0, fresh = 0;
       blanks.forEach(function (b) {
         if (b.locked) { right++; return; }
         if (same(b.value, b.answer)) {
-          right++;
+          right++; fresh++;
           b.locked = true;
           b.el.classList.add('is-right');
           b.el.disabled = true;
@@ -1080,6 +1189,12 @@
           shake(b.el);
         }
       });
+      if (fresh) {
+        var miles = fresh * milesFor(firstScore === null);
+        earn(miles);
+        floatMiles(checkBtn, miles);
+      }
+      GameKit.sfx(right === blanks.length ? 'right' : 'wrong');
       if (firstScore === null) firstScore = right;
       if (right === blanks.length) {
         setFb('good', 'All correct. Great listening!', 'Tudo certo. Ótima escuta!');
@@ -1181,6 +1296,7 @@
           if (o === correct) {
             solved = true;
             if (!tried) firstTry++;
+            mark(true, !tried, btn);
             btn.classList.add('is-right');
             grid.querySelectorAll('.option').forEach(function (x) { x.disabled = true; });
             clear(fb);
@@ -1203,6 +1319,7 @@
             }, 550);
           } else {
             tried = true;
+            mark(false);
             btn.classList.add('is-wrong');
             btn.disabled = true;
             shake(btn);
@@ -1296,16 +1413,18 @@
           if (o === correct) {
             solved = true;
             if (!tried) score++;
+            mark(true, !tried, btn);
             btn.classList.add('is-right');
             grid.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
             clear(fb);
             var s = q.sign ? C.signs[q.sign] : C.signs[o];
             fb.appendChild(feedback('good', 'Correct!', q.note || (s.en + ': ' + s.mean), q.note ? q.notePt : (s.pt + ': ' + s.meanPt)));
-            if (!q.sign) SP.say(s.en, 'teacher');
+            if (!q.sign) later(function () { SP.say(s.en, 'teacher'); }, AFTER_CHIME);
             nextBtn.hidden = false;
             scrollSoft(nextBtn);
           } else {
             tried = true;
+            mark(false);
             btn.classList.add('is-wrong');
             btn.disabled = true;
             shake(btn);
@@ -1328,7 +1447,7 @@
     var order = ctx.stop.signorder;
     var hints = (ctx.stop.signorderHints || []).map(tr);
     var body = ctx.body;
-    var pos = 0, mistakes = 0;
+    var pos = 0, mistakes = 0, slipped = false;
     body.appendChild(instr('You just landed at DXB with the family. Tap the signs in the order you will follow them.',
       'Vocês acabaram de pousar no DXB. Toque nas placas na ordem em que vão segui-las.'));
 
@@ -1354,10 +1473,12 @@
       btn.addEventListener('click', function () {
         if (id === order[pos]) {
           var slot = slots[pos];
+          mark(true, !slipped, btn);
+          slipped = false;
           slot.li.classList.add('filled');
           slot.li.replaceChild(signEl(id), slot.holder);
           btn.parentNode.removeChild(btn);
-          SP.say(C.signs[id].en, 'teacher');
+          later(function () { SP.say(C.signs[id].en, 'teacher'); }, AFTER_CHIME);
           pos++;
           clear(fb);
           paintHint();
@@ -1369,6 +1490,8 @@
           }
         } else {
           mistakes++;
+          slipped = true;
+          mark(false);
           shake(btn);
           clear(fb);
           var hh = hints[pos] || { t: 'Think about what comes next.', pt: 'Pense no que vem depois.' };
@@ -1528,6 +1651,47 @@
       ptSeg]);
     main.appendChild(ptSec);
 
+    /* --- daily goal and game sounds --- */
+    var GOAL_TIME = { 100: 'about 5 minutes', 200: 'about 10 minutes', 300: 'about 15 minutes' };
+    var GOAL_TIME_PT = { 100: 'cerca de 5 minutos', 200: 'cerca de 10 minutos', 300: 'cerca de 15 minutos' };
+    var goalSec = section('Daily goal', 'Meta diária');
+    var goalSeg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Daily goal' });
+    var goalNote = h('p', { class: 'muted' }, '');
+    var goalNotePt = pt(' ');
+    function paintGoal() {
+      var cur = Game.view().goal;
+      goalSeg.querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', +b.value === cur ? 'true' : 'false'); });
+      goalNote.textContent = cur + ' miles a day is ' + GOAL_TIME[cur] + '. One activity gives about 100 miles.';
+      if (goalNotePt) goalNotePt.textContent = cur + ' milhas por dia são ' + GOAL_TIME_PT[cur] + '. Uma atividade vale cerca de 100 milhas.';
+    }
+    GameKit.GOALS.forEach(function (n) {
+      var b = h('button', { type: 'button', value: String(n) }, n + ' miles');
+      b.addEventListener('click', function () { store.settings.goal = n; save(); paintGoal(); });
+      goalSeg.appendChild(b);
+    });
+    paintGoal();
+    var sfxSeg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Game sounds' });
+    var sfxYes = h('button', { type: 'button' }, 'Sounds on');
+    var sfxNo = h('button', { type: 'button' }, 'Sounds off');
+    function paintSfx() {
+      var on = store.settings.sfx !== false;
+      sfxYes.setAttribute('aria-pressed', on ? 'true' : 'false');
+      sfxNo.setAttribute('aria-pressed', on ? 'false' : 'true');
+    }
+    sfxYes.addEventListener('click', function () { store.settings.sfx = true; save(); GameKit.setSound(true); paintSfx(); GameKit.sfx('right'); });
+    sfxNo.addEventListener('click', function () { store.settings.sfx = false; save(); GameKit.setSound(false); paintSfx(); });
+    add(sfxSeg, [sfxYes, sfxNo]);
+    paintSfx();
+    add(goalSec, [
+      h('p', null, 'You earn miles for every answer. Choose how many miles you want to reach each day.'),
+      pt('Você ganha milhas a cada resposta. Escolha quantas milhas quer alcançar por dia.'),
+      goalSeg, goalNote, goalNotePt,
+      h('h3', { class: 'panel-h3' }, 'Game sounds', ptOn() ? h('span', { class: 'h-pt', lang: 'pt-BR' }, ' · Sons do jogo') : null),
+      h('p', null, 'Short sounds for right and wrong answers. The voices of the lessons are not changed.'),
+      pt('Sons curtos para respostas certas e erradas. As vozes das lições não mudam.'),
+      sfxSeg]);
+    main.appendChild(goalSec);
+
     /* --- who speaks --- */
     var castSec = section('Who speaks with which voice', 'Quem fala com qual voz');
     var cast = h('div', { class: 'cast' });
@@ -1667,7 +1831,9 @@
         return;
       }
       clearTimeout(armT);
-      store.progress = {}; store.stamps = {}; save();
+      store.progress = {}; store.stamps = {};
+      Game.reset();
+      save();
       armed = false;
       reset.textContent = 'Progress deleted';
       reset.disabled = true;
@@ -1675,8 +1841,8 @@
     cleanup.push(function () { clearTimeout(armT); });
     main.appendChild(h('section', { class: 'panel' },
       h('h2', null, 'Progress'),
-      h('p', null, 'Your progress is saved in this browser only.'),
-      pt('Seu progresso fica salvo apenas neste navegador.'),
+      h('p', null, 'Your progress, stamps and miles are saved in this browser only.'),
+      pt('Seu progresso, carimbos e milhas ficam salvos apenas neste navegador.'),
       reset));
 
     root.appendChild(main);

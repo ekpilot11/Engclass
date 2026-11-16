@@ -195,13 +195,13 @@ h1:focus { outline: none; }
 }
 .brand { display: flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; min-width: 0; }
 .brand-mark {
-  display: grid; place-items: center;
+  display: grid; place-items: center; flex: none;
   width: 36px; height: 36px; border-radius: 8px;
   background: var(--yellow); color: var(--yellow-ink);
   font: 800 1rem/1 var(--font-display);
   padding-top: 3px;
 }
-.brand-name { font: 800 1.15rem/1 var(--font-display); letter-spacing: -0.01em; white-space: nowrap; }
+.brand-name { font: 800 1.15rem/1 var(--font-display); letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tb-back { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; min-width: 0; color: var(--ink); text-decoration: none; font-weight: 700; }
 .tb-back .ico { width: 24px; height: 24px; }
 .tb-back-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -335,6 +335,73 @@ h1:focus { outline: none; }
 .st-ready { border: 1px solid var(--board-dim); color: var(--board-ink); }
 .st-progress { border: 1px solid var(--yellow); color: var(--yellow); }
 .st-done { background: var(--yellow); color: var(--yellow-ink); }
+
+/* frequent-flyer card: today's miles, the streak, the level */
+.flyer {
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 16px; border-radius: 16px;
+  background: var(--sign); color: var(--sign-ink);
+  box-shadow: var(--shadow);
+}
+.fc-top { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; }
+.fc-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.fc-label { font: 700 0.72rem/1.3 var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--board-dim); }
+.fc-miles { font: 700 1rem/1.15 var(--font-display); white-space: nowrap; }
+.fc-miles strong { font-size: 1.7rem; font-weight: 800; color: var(--yellow); }
+.fc-status { display: grid; gap: 2px; font-size: 0.93rem; line-height: 1.35; }
+.fc-pt { color: var(--sign-pt); }
+.fc-streak {
+  display: grid; justify-items: center; min-width: 62px; padding: 8px 10px 7px; border-radius: 12px;
+  background: rgb(255 255 255 / 0.08); color: var(--board-dim);
+}
+.fc-streak .ico { width: 22px; height: 22px; }
+.fc-streak strong { font: 800 1.5rem/1 var(--font-display); color: var(--sign-ink); padding-top: 5px; font-variant-numeric: tabular-nums; }
+.fc-streak span:last-child { font: 700 0.66rem/1.2 var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; }
+.fc-streak.on .ico { color: #FF8A3D; }
+.fc-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.fc-day { display: grid; justify-items: center; gap: 5px; }
+.fc-dot { width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgb(255 255 255 / 0.22); display: grid; place-items: center; }
+.fc-dot .ico { width: 14px; height: 14px; }
+.fc-day.some .fc-dot { border-color: var(--yellow); background: rgb(255 194 26 / 0.28); }
+.fc-day.goal .fc-dot { border-color: var(--yellow); background: var(--yellow); color: var(--yellow-ink); }
+.fc-letter { font: 700 0.7rem/1 var(--font-mono); color: var(--board-dim); }
+.fc-day.today .fc-letter { color: var(--yellow); }
+.fc-level {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px;
+  font-size: 0.88rem; color: var(--board-dim);
+  padding-top: 12px; border-top: 1px solid rgb(255 255 255 / 0.12);
+}
+.fc-tier { font: 800 0.72rem/1 var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; padding: 5px 8px 4px; border-radius: 6px; background: #3D6FD6; color: #FFFFFF; }
+.tier-silver { background: #C9D1D9; color: #17150C; }
+.tier-gold { background: var(--yellow); color: var(--yellow-ink); }
+.tier-platinum { background: #E9E6F2; color: #2B2740; }
+
+.ring { position: relative; width: 64px; height: 64px; flex: none; display: grid; place-items: center; }
+.ring svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ring circle { fill: none; stroke-width: 7; }
+.ring-bg { stroke: rgb(255 255 255 / 0.16); }
+.ring-fg { stroke: var(--yellow); stroke-linecap: round; }
+.ring-in { position: relative; font: 800 0.9rem/1 var(--font-display); padding-top: 3px; font-variant-numeric: tabular-nums; }
+.ring.full .ring-in { width: 28px; height: 28px; padding: 0; color: var(--yellow); }
+.ring.sm { width: 46px; height: 46px; }
+.ring.sm .ring-in { font-size: 0.7rem; }
+.ring.sm.full .ring-in { width: 20px; height: 20px; }
+
+/* "+10" over the answer she tapped */
+.float-miles {
+  position: fixed; z-index: 45; pointer-events: none;
+  font: 800 1.15rem/1 var(--font-display); padding: 8px 12px 5px; border-radius: 999px;
+  background: var(--yellow); color: var(--yellow-ink); box-shadow: var(--shadow);
+  animation: float-miles 0.95s ease-out both;
+}
+@keyframes float-miles {
+  0% { opacity: 0; transform: translate(-50%, -30%) scale(0.8); }
+  18% { opacity: 1; transform: translate(-50%, -90%) scale(1); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -240%) scale(1); }
+}
+.confetti { position: fixed; inset: 0; z-index: 60; pointer-events: none; overflow: hidden; }
+.confetti span { position: absolute; top: 0; border-radius: 2px; }
 
 .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .count { font: 700 0.9rem var(--font-mono); color: var(--muted); }
@@ -672,6 +739,16 @@ h1:focus { outline: none; }
 .result-badge .ico { width: 40px; height: 40px; }
 .result-score { font-size: 1.1rem; }
 .result-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; padding-top: 6px; }
+.earned {
+  display: grid; justify-items: center; gap: 8px; width: 100%; max-width: 360px;
+  padding: 14px 16px; border-radius: 14px; background: var(--yellow-soft);
+}
+.earned-miles { font: 700 1.05rem/1.1 var(--font-display); }
+.earned-miles strong { font-size: 2rem; font-weight: 800; }
+.earned-goal { display: flex; align-items: center; gap: 10px; }
+.earned .ring-bg { stroke: rgb(120 120 120 / 0.25); }
+.earned .ring.full .ring-in { color: var(--ink); }
+.earned-news { font-size: 0.98rem; }
 
 /* overlay, stamp */
 .overlay {
@@ -741,6 +818,7 @@ h1:focus { outline: none; }
 .cast-name { font-weight: 700; }
 .cast-voice { font-size: 0.86rem; color: var(--muted); overflow-wrap: anywhere; }
 .plain-list { margin: 0; padding-left: 1.2em; display: grid; gap: 8px; }
+.panel-h3 { font: 800 1.05rem/1.25 var(--font-display); padding-top: 14px; margin-top: 4px; border-top: 1px solid var(--line); }
 
 /* ---------------------------------------------------------------- motion */
 .pop-in { animation: pop-in 0.28s ease-out both; }
@@ -760,6 +838,8 @@ h1:focus { outline: none; }
 @media (max-width: 380px) {
   body { font-size: 16px; }
   .brand-name { font-size: 1.02rem; }
+  .fc-top { gap: 10px; }
+  .fc-miles strong { font-size: 1.5rem; }
   .speed { padding: 6px 10px; }
   .board-row, .board-cols { grid-template-columns: 1.8rem 1.9rem minmax(0, 1fr) auto; gap: 8px; padding-left: 12px; padding-right: 12px; }
   .gap-line { grid-template-columns: 40px minmax(0, 1fr); }
