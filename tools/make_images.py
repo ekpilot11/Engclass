@@ -31,7 +31,7 @@ CACHE = os.path.join(ROOT, 'tools', '.image-cache')
 OUT = os.path.join(ROOT, 'img')
 API = 'https://api.openai.com/v1'
 KEY = os.environ.get('OPENAI_API_KEY', 'sk-proxy-adds-the-key')
-SIZES = {'vocab': (400, 400), 'scene': (960, 540), 'people': (256, 256)}
+SIZES = {'vocab': (400, 400), 'scene': (960, 540), 'stage': (1440, 810), 'people': (256, 256)}
 
 
 def call(method, path, body=None, headers=None, timeout=360):
@@ -233,6 +233,8 @@ def main():
         if job['kind'] in SIZES:
             kind, name = job['key'].split('/', 1)
             export(png, kind, os.path.join(OUT, kind, name + '.webp'))
+            if job.get('stage'):  # a larger copy of the scene for the animated scene
+                export(png, 'stage', os.path.join(OUT, 'stage', name + '.webp'))
 
     n = write_index()
     if a.contact:

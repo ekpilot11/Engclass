@@ -381,11 +381,23 @@
       revealBtn.hidden = !v;
       if (ptBtn) { ptBtn.hidden = !!v; if (v) setPt(false); }
     }
+    // With an animated scene (opts.stage), the line also plays there: camera, lit words, portrait.
     function play() {
+      var st = opts.stage || null;
       SP.say(spoken, line.who, {
         fx: fx,
-        onstart: function () { setSpeaking(true); },
-        onend: function () { setSpeaking(false); }
+        onstart: function () {
+          setSpeaking(true);
+          if (!st) return;
+          st.show(line, { hidden: textEl.classList.contains('blurred'), pt: !!ptEl && !ptEl.hidden, times: SP.timesFor(spoken, line.who, fx) });
+          st.setPlaying(true);
+          st.start();
+        },
+        ontime: st ? st.tick : null,
+        onend: function () {
+          setSpeaking(false);
+          if (st) { st.rest(); st.setPlaying(false); }
+        }
       });
     }
     function setSpeaking(v) { el.classList.toggle('speaking', !!v); }
@@ -397,6 +409,43 @@
     }
     if (opts.hidden) setHidden(true);
     return { el: el, play: play, setHidden: setHidden, setPt: setPt, reveal: function () { setHidden(false); }, setSpeaking: setSpeaking };
+  }
+
+  /* The animated scene of a lesson (js/stage.js). null when the lesson has no camera places or picture yet. */
+  function makeStage(stop, extra) {
+    var key = Keys.stage(stop);
+    if (!window.HDStage || !stop.imgSpots || !IMG[key]) return null;
+    var st = window.HDStage.create({
+      src: IMG[key], alt: stop.intro, spots: stop.imgSpots, ptOn: ptOn(),
+      person: function (who) {
+        var ch = C.characters[who];
+        return ch ? { name: ch.name, src: IMG[Keys.person(who)] || null, emoji: ch.avatar } : null;
+      },
+      vocab: (stop.vocab || []).map(function (v) {
+        return { w: v.w, pt: v.pt, src: IMG[Keys.vocab(stop, v)] || null, emoji: v.e, item: v };
+      }),
+      onCard: function (v) { showWord(stop, v.item); },
+      onPlay: extra && extra.onPlay
+    });
+    cleanup.push(st.destroy);
+    return st;
+  }
+
+  /* A word of the lesson in a pop-up: picture, translation and example, read aloud. */
+  function showWord(stop, v) {
+    function say() { SP.sayAll([{ text: v.w, who: 'teacher' }, { text: v.ex, who: 'teacher' }]); }
+    var play = h('button', { class: 'btn btn-primary', type: 'button' }, icon('volume'), 'Listen');
+    play.addEventListener('click', say);
+    var close = h('button', { class: 'btn', type: 'button' }, icon('x'), 'Close');
+    close.addEventListener('click', function () { SP.stop(); closeOverlay(); });
+    openOverlay(h('div', { class: 'modal word-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Word: ' + v.w },
+      pic(Keys.vocab(stop, v), '', h('span', { class: 'v-emoji', 'aria-hidden': 'true' }, v.e), 'v-img'),
+      h('p', { class: 'word-big' }, v.w),
+      ptOn() && v.pt ? h('p', { class: 'show-pt', lang: 'pt-BR' }, v.pt) : null,
+      h('p', null, v.ex),
+      pt(v.exPt),
+      h('div', { class: 'result-actions' }, play, close)));
+    say();
   }
 
   /* "Say it": speech recognition practice (only where the browser supports it). */
@@ -910,10 +959,22 @@
     var d = ctx.stop.dialogue;
     var body = ctx.body;
     var textOn = store.settings.text !== false;
-    body.appendChild(instr('Press play and listen to the conversation. Tap any line to hear it again. Then answer the questions.',
-      'Aperte play e ouça a conversa. Toque em qualquer frase para ouvir de novo. Depois, responda às perguntas.'));
+    var ptAllOn = false;
+    var playing = false;
+    // With an animated scene the conversation plays like a film; the chat below is the transcript.
+    var sv = makeStage(ctx.stop, { onPlay: togglePlay });
+    var playText = sv ? 'Play the scene' : 'Play the conversation';
+    body.appendChild(sv
+      ? instr('Press play and watch the scene. Tap any line below to hear it again. Then answer the questions.',
+        'Aperte play e assista à cena. Toque em qualquer frase abaixo para ouvir de novo. Depois, responda às perguntas.')
+      : instr('Press play and listen to the conversation. Tap any line to hear it again. Then answer the questions.',
+        'Aperte play e ouça a conversa. Toque em qualquer frase para ouvir de novo. Depois, responda às perguntas.'));
+    if (sv) {
+      body.appendChild(sv.el);
+      sv.say('', 'Press play to watch the scene.', 'Aperte play para assistir à cena.');
+    }
 
-    var playLabel = h('span', null, 'Play the conversation');
+    var playLabel = h('span', null, playText);
     var playBtn = h('button', { class: 'btn btn-primary', type: 'button' }, icon('play'), playLabel);
     var textLabel = h('span', null, '');
     var textBtn = h('button', { class: 'btn', type: 'button' });
@@ -922,20 +983,20 @@
 
     var chat = h('div', { class: 'chat' });
     var bubbles = d.lines.map(function (line) {
-      var b = makeBubble(line, { hidden: !textOn });
+      var b = makeBubble(line, { hidden: !textOn, stage: sv });
       chat.appendChild(b.el);
       return b;
     });
     body.appendChild(chat);
 
     if (ptOn()) {
-      var ptAllOn = false;
       var ptAll = h('button', { class: 'btn', type: 'button', 'aria-pressed': 'false' }, icon('globe'), h('span', null, 'Português'));
       ptAll.addEventListener('click', function () {
         ptAllOn = !ptAllOn;
         ptAll.setAttribute('aria-pressed', ptAllOn ? 'true' : 'false');
         if (ptAllOn && !textOn) { textOn = true; bubbles.forEach(function (b) { b.setHidden(false); }); paintText(); }
         bubbles.forEach(function (b) { b.setPt(ptAllOn); });
+        if (sv) { sv.setHidden(!textOn); sv.setPt(ptAllOn); }
       });
       controls.appendChild(ptAll);
     }
@@ -952,27 +1013,42 @@
       store.settings.text = textOn;
       save();
       bubbles.forEach(function (b) { b.setHidden(!textOn); });
+      if (sv) sv.setHidden(!textOn);
       paintText();
     });
 
-    var playing = false;
     function paintPlay() {
       playBtn.replaceChild(icon(playing ? 'stop' : 'play'), playBtn.firstChild);
-      playLabel.textContent = playing ? 'Stop' : 'Play the conversation';
+      playLabel.textContent = playing ? 'Stop' : playText;
+      if (sv) sv.setPlaying(playing);
     }
-    playBtn.addEventListener('click', function () {
-      if (playing) { SP.stop(); return; }
+    // A tap on the picture: stop whatever is speaking, or start the scene.
+    function togglePlay() {
+      if (playing || SP.busy) SP.stop();
+      else startScene();
+    }
+    function startScene() {
       playing = true; paintPlay();
+      if (sv) scrollSoft(sv.el, 'start');
       SP.sayAll(d.lines.map(function (l) { return { text: l.say || l.t, who: l.who }; }), {
         onItem: function (i) {
           bubbles.forEach(function (b, k) { b.setSpeaking(k === i); });
-          scrollSoft(bubbles[i].el);
+          if (!sv) { scrollSoft(bubbles[i].el); return; }
+          var l = d.lines[i];
+          sv.show(l, { hidden: !textOn, pt: ptAllOn, times: SP.timesFor(l.say || l.t, l.who) });
+          sv.start();
         },
+        onTime: sv ? function (i, ms) { sv.tick(ms); } : null,
         onDone: function () {
           bubbles.forEach(function (b) { b.setSpeaking(false); });
           playing = false; paintPlay();
+          if (sv) { sv.rest(); sv.wide(); }
         }
       });
+    }
+    playBtn.addEventListener('click', function () {
+      if (playing) SP.stop();
+      else startScene();
     });
 
     var finishBtn = h('button', { class: 'btn btn-primary', type: 'button', disabled: true }, 'See my result', icon('forward'));
@@ -1231,12 +1307,26 @@
   RUN.talk = function (ctx) {
     var turns = ctx.stop.roleplay;
     var body = ctx.body;
-    body.appendChild(instr('You are the passenger. Listen, then choose the best answer. The words are blurred so you listen first: tap “Show words” if you need help.',
-      'Você é a passageira. Ouça e escolha a melhor resposta. As palavras ficam borradas para você ouvir primeiro: toque em “Show words” se precisar de ajuda.'));
+    // With an animated scene: the staff speak in the scene, the answers are right under it,
+    // and the chat below keeps what was said. Without one: the chat, then the answers.
+    var sv = makeStage(ctx.stop);
+    body.appendChild(sv
+      ? instr('You are the passenger. Watch and listen, then choose the best answer. The words are blurred so you listen first: tap “Show words” if you need help.',
+        'Você é a passageira. Assista e ouça, depois escolha a melhor resposta. As palavras ficam borradas para você ouvir primeiro: toque em “Show words” se precisar de ajuda.')
+      : instr('You are the passenger. Listen, then choose the best answer. The words are blurred so you listen first: tap “Show words” if you need help.',
+        'Você é a passageira. Ouça e escolha a melhor resposta. As palavras ficam borradas para você ouvir primeiro: toque em “Show words” se precisar de ajuda.'));
     var chat = h('div', { class: 'chat' });
     var stage = h('div', { class: 'stage', 'aria-live': 'polite' });
-    body.appendChild(chat);
-    body.appendChild(stage);
+    if (sv) {
+      sv.say('', 'Press Start and listen.', 'Aperte Start e ouça.');
+      add(body, [sv.el, stage,
+        h('h2', { class: 'log-head' }, 'The conversation so far', ptOn() ? h('span', { class: 'h-pt', lang: 'pt-BR' }, ' · A conversa até agora') : null),
+        chat]);
+    } else {
+      add(body, [chat, stage]);
+    }
+    // Keep the part she needs on screen: the scene with the answers, or the end of the chat.
+    function view() { if (sv) scrollSoft(sv.el, 'start'); else scrollSoft(stage, 'end'); }
 
     var i = 0, asked = 0, firstTry = 0;
     var lastStaff = null;
@@ -1254,21 +1344,25 @@
       if (t.sit) {
         lastStaff = null;
         chat.appendChild(h('div', { class: 'sit pop-in' }, h('span', { class: 'sit-label' }, 'Situation'), h('p', null, t.sit), pt(t.pt)));
-        scrollSoft(stage, 'end');
-        later(step, 450);
+        if (sv) { sv.wide(); sv.setNote('Situation', t.sit, t.pt); }
+        view();
+        later(step, sv ? 1500 : 450);
         return;
       }
       if (t.choose) { choices(t); return; }
       var fx = Items.fxOf(t);
-      var b = makeBubble(t, { hidden: t.who !== 'you', fx: fx });
+      var hidden = t.who !== 'you';
+      var b = makeBubble(t, { hidden: hidden, fx: fx, stage: sv });
       chat.appendChild(b.el);
       lastStaff = b;
-      scrollSoft(stage, 'end');
+      view();
       var nextIsLine = turns[i] && turns[i].who;
+      if (sv) sv.show(t, { hidden: hidden, times: SP.timesFor(t.say || t.t, t.who, fx) });
       SP.say(t.say || t.t, t.who, {
         fx: fx,
-        onstart: function () { b.setSpeaking(true); },
-        onend: function () { b.setSpeaking(false); if (nextIsLine) step(); }
+        onstart: function () { b.setSpeaking(true); if (sv) sv.start(); },
+        ontime: sv ? sv.tick : null,
+        onend: function () { b.setSpeaking(false); if (sv) sv.rest(); if (nextIsLine) step(); }
       });
       if (!nextIsLine) step();
     }
@@ -1283,9 +1377,18 @@
       var head = h('div', { class: 'stage-head' },
         h('div', null, h('p', { class: 'stage-q' }, t.ask || 'What do you say?'), pt(t.ask ? t.askPt : 'O que você diz?')));
       if (lastStaff) {
+        var staff = lastStaff;
+        var tools = h('div', { class: 'sv-tools' });
         var again = h('button', { class: 'chip-btn', type: 'button' }, icon('volume'), h('span', null, 'Listen again'));
-        again.addEventListener('click', function () { lastStaff.play(); });
-        head.appendChild(again);
+        again.addEventListener('click', function () { staff.play(); });
+        tools.appendChild(again);
+        if (sv) {
+          // in the scene the words are blurred too: one button shows them there and in the chat
+          var showBtn = h('button', { class: 'chip-btn', type: 'button' }, icon('eye'), h('span', null, 'Show words'));
+          showBtn.addEventListener('click', function () { staff.reveal(); sv.setHidden(false); showBtn.hidden = true; });
+          tools.appendChild(showBtn);
+        }
+        head.appendChild(tools);
       }
       var grid = h('div', { class: 'options' });
       var fb = h('div', { class: 'fb', 'aria-live': 'polite' });
@@ -1301,19 +1404,23 @@
             grid.querySelectorAll('.option').forEach(function (x) { x.disabled = true; });
             clear(fb);
             if (lastStaff) lastStaff.reveal();
+            if (sv) { sv.setHidden(false); sv.setNote(null); }
             later(function () {
               clear(stage);
               if (t.ask) {
                 chat.appendChild(h('div', { class: 'answer-note pop-in' }, h('span', { class: 'muted' }, t.ask + ' '), h('strong', null, o.t)));
-                scrollSoft(stage, 'end');
+                view();
                 later(step, 500);
               } else {
-                var yb = makeBubble({ who: 'you', t: o.t, say: o.say });
+                var mine = { who: 'you', t: o.t, say: o.say };
+                var yb = makeBubble(mine, { stage: sv });
                 chat.appendChild(yb.el);
-                scrollSoft(stage, 'end');
+                view();
+                if (sv) sv.show(mine, { times: SP.timesFor(o.say || o.t, 'you') });
                 SP.say(o.say || o.t, 'you', {
-                  onstart: function () { yb.setSpeaking(true); },
-                  onend: function () { yb.setSpeaking(false); step(); }
+                  onstart: function () { yb.setSpeaking(true); if (sv) sv.start(); },
+                  ontime: sv ? sv.tick : null,
+                  onend: function () { yb.setSpeaking(false); if (sv) sv.rest(); step(); }
                 });
               }
             }, 550);
@@ -1332,7 +1439,9 @@
         grid.appendChild(btn);
       });
       add(stage, [head, grid, fb]);
-      scrollSoft(stage, 'end');
+      // her turn: the camera turns to her (a listening question keeps looking at the speaker)
+      if (sv && !t.ask && sv.has('you')) sv.focus('you');
+      view();
     }
 
     function end() {
@@ -1340,7 +1449,8 @@
       var done = h('button', { class: 'btn btn-primary', type: 'button' }, 'See my result', icon('forward'));
       done.addEventListener('click', function () { ctx.finish(firstTry, asked); });
       add(stage, [h('p', { class: 'stage-q' }, 'Conversation finished. Well done!'), pt('Conversa terminada. Muito bem!'), done]);
-      scrollSoft(stage, 'end');
+      if (sv) { sv.setNote(null); sv.wide(); }
+      view();
     }
   };
 

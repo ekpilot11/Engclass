@@ -19,6 +19,7 @@ var ASSETS = [
   './js/speech.js',
   './audio/sfx.js',
   './js/game.js',
+  './js/stage.js',
   './js/app.js',
   './manifest.webmanifest',
   './icons/icon.svg',

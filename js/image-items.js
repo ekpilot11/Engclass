@@ -18,6 +18,7 @@
   var SIZES = {
     vocab: [400, 400],
     scene: [960, 540],
+    stage: [1440, 810],   // the same scene, larger, for the animated scene (it zooms in)
     people: [256, 256]
   };
 
@@ -26,6 +27,7 @@
     SIZES: SIZES,
     vocab: function (stop, v) { return 'vocab/' + stop.id + '-' + slug(v.w); },
     scene: function (stop) { return 'scene/' + stop.id; },
+    stage: function (stop) { return 'stage/' + stop.id; },
     person: function (who) { return 'people/' + who; },
     kind: function (key) { return key.split('/')[0]; }
   };

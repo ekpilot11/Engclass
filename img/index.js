@@ -22,6 +22,7 @@ window.HD_IMAGES = {
  "scene/plane": "img/scene/plane.webp?v=3c6def71",
  "scene/signs": "img/scene/signs.webp?v=5a1661c3",
  "scene/taxi": "img/scene/taxi.webp?v=d13d1a9d",
+ "stage/passport": "img/stage/passport.webp?v=5ecb3ad7",
  "vocab/baggage-baggage-tag": "img/vocab/baggage-baggage-tag.webp?v=a666b883",
  "vocab/baggage-belt": "img/vocab/baggage-belt.webp?v=6c7aa634",
  "vocab/baggage-car-seat": "img/vocab/baggage-car-seat.webp?v=7e80cfd1",

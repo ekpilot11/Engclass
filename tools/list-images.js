@@ -10,6 +10,7 @@
  *
  * Content fields used (all optional):
  *   stop.imgScene      what the lesson picture shows (default: the lesson intro)
+ *   stop.imgSpots      places in the scene for the animated scene; when present, a larger copy is exported too
  *   vocab.img          what the word card shows (default: built from the word and example)
  *   vocab.imgFamily    true when the card shows family members (uses the character sheet)
  */
@@ -57,7 +58,8 @@ Object.keys(S.people).forEach(who => {
 
 C.journeys.forEach(j => j.stops.forEach(stop => {
   if (onlyStops && onlyStops.indexOf(stop.id) < 0) return;
-  jobs.push({ key: Keys.scene(stop), kind: 'scene', size: '1536x1024', refs: ['sheet'], prompt: fill(T.scene, stop.imgScene || stop.intro) });
+  jobs.push({ key: Keys.scene(stop), kind: 'scene', size: '1536x1024', refs: ['sheet'], prompt: fill(T.scene, stop.imgScene || stop.intro),
+    stage: !!stop.imgSpots });
   (stop.vocab || []).forEach(v => {
     const family = !!v.imgFamily;
     jobs.push({

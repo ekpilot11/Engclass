@@ -198,10 +198,35 @@ def main():
         'keys': keys_index,
         'voices': labels,
         'credits': (['Voices by ElevenLabs'] if el_used else []) + (['Voices by Kokoro (Apache-2.0)'] if kokoro_used else []),
+        'times': scan_times(packs),
     }
-    with open(os.path.join(OUT, 'index.js'), 'w', encoding='utf-8') as f:
-        f.write('window.HD_AUDIO = ' + json.dumps(index, separators=(',', ':')) + ';\n')
+    write_index(index)
     print(f'wrote {len(packs)} packs, {total / 1e6:.1f} MB', flush=True)
+
+
+INDEX_START = 'window.HD_AUDIO = '
+
+
+def write_index(index):
+    with open(os.path.join(OUT, 'index.js'), 'w', encoding='utf-8') as f:
+        f.write(INDEX_START + json.dumps(index, separators=(',', ':')) + ';\n')
+
+
+def read_index():
+    with open(os.path.join(OUT, 'index.js'), encoding='utf-8') as f:
+        src = f.read().strip()
+    return json.loads(src[len(INDEX_START):].rstrip(';'))
+
+
+def scan_times(pack_names):
+    """The word-timing files that exist (audio/times-<pack>.js, written by tools/make_timings.py)."""
+    out = {}
+    for name in sorted(pack_names):
+        path = os.path.join(OUT, f'times-{name}.js')
+        if os.path.exists(path):
+            with open(path, 'rb') as f:
+                out[name] = f'audio/times-{name}.js?v={hashlib.sha1(f.read()).hexdigest()[:8]}'
+    return out
 
 
 if __name__ == '__main__':

@@ -73,6 +73,19 @@ window.HD_CONTENT.journeys.push({
       sub: "Talk to the officer",
       scene: "👮‍♂️ 📘 📷",
       imgScene: "passport control in the arrivals hall of Dubai airport. The family from the reference image (the mother, the grandmother, the nanny and the toddler twins, a boy and a girl) stands together at a passport control counter. The mother hands over the passports. Behind the counter sits a friendly Emirati officer with a short black beard, in a white kandura and white ghutra, with a small camera on the counter. A bright modern airport hall with big windows in the background. Calm and welcoming.",
+      // Where things are in the scene picture, for the animated scene: [x, y, zoom], with x and y from 0 to 1.
+      // A 4th number adds a spotlight of that size around x, y (for "Who is this lady?"), and a 5th and 6th
+      // move the middle of the shot. A line looks at the place named like its speaker, or at its "cam".
+      imgSpots: {
+        officer: [0.85, 0.30, 2.2],
+        you: [0.50, 0.26, 2.0],
+        grandma: [0.225, 0.23, 2.2, 0.16],
+        nanny: [0.10, 0.21, 2.2, 0.16],
+        twins: [0.36, 0.56, 2.2, 0.21],
+        camera: [0.905, 0.50, 2.1, 0.12, 0.86, 0.42],
+        passports: [0.67, 0.42, 2.2],
+        family: [0.28, 0.46, 1.35]
+      },
       intro: "The officer checks the passports of the whole family. Answer simple questions, explain who everybody is, and ask him to repeat if you don’t understand.",
       introPt: "O oficial verifica os passaportes de toda a família. Responda perguntas simples, explique quem é cada pessoa e peça para ele repetir se não entender.",
       tips: [
@@ -113,22 +126,22 @@ window.HD_CONTENT.journeys.push({
       dialogue: {
         lines: [
           { who: "officer", t: "Good evening. Next, please.", pt: "Boa noite. Próximo, por favor." },
-          { who: "you", t: "Good evening. We are a family of five.", pt: "Boa noite. Somos uma família de cinco pessoas." },
+          { who: "you", t: "Good evening. We are a family of five.", pt: "Boa noite. Somos uma família de cinco pessoas.", cam: "family" },
           { who: "officer", t: "[Passports], please.", pt: "Passaportes, por favor." },
-          { who: "you", t: "Here you are. These are our passports and our [visas].", pt: "Aqui estão. Estes são nossos passaportes e nossos vistos." },
+          { who: "you", t: "Here you are. These are our passports and our [visas].", pt: "Aqui estão. Estes são nossos passaportes e nossos vistos.", cam: "passports" },
           { who: "officer", t: "Thank you. What is the [purpose] of your visit?", pt: "Obrigado. Qual é o motivo da sua visita?" },
           { who: "you", t: "We are moving to Dubai. We are going to [live] here.", pt: "Estamos nos mudando para Dubai. Vamos morar aqui." },
-          { who: "officer", t: "Who is this lady?", pt: "Quem é esta senhora?" },
+          { who: "officer", t: "Who is this lady?", pt: "Quem é esta senhora?", cam: "grandma" },
           { who: "you", t: "This is my [mother]. She doesn’t speak English, so I can translate.", pt: "Esta é minha mãe. Ela não fala inglês, então eu posso traduzir." },
-          { who: "officer", t: "And this lady?", pt: "E esta senhora?" },
+          { who: "officer", t: "And this lady?", pt: "E esta senhora?", cam: "nanny" },
           { who: "you", t: "She is our [nanny]. Here is her visa.", pt: "Ela é nossa babá. Aqui está o visto dela." },
-          { who: "officer", t: "Are these your children?", pt: "Estas crianças são suas?" },
-          { who: "you", t: "Yes, they are. They are [twins], a boy and a girl.", pt: "Sim, são. Eles são gêmeos, um menino e uma menina." },
-          { who: "officer", t: "How old are they?", pt: "Quantos anos eles têm?" },
+          { who: "officer", t: "Are these your children?", pt: "Estas crianças são suas?", cam: "twins" },
+          { who: "you", t: "Yes, they are. They are [twins], a boy and a girl.", pt: "Sim, são. Eles são gêmeos, um menino e uma menina.", cam: "twins" },
+          { who: "officer", t: "How old are they?", pt: "Quantos anos eles têm?", cam: "twins" },
           { who: "you", t: "They are [two].", pt: "Eles têm dois anos." },
-          { who: "officer", t: "OK. Please look at the [camera], everybody.", pt: "Ok. Olhem para a câmera, todos, por favor." },
+          { who: "officer", t: "OK. Please look at the [camera], everybody.", pt: "Ok. Olhem para a câmera, todos, por favor.", cam: "camera" },
           { who: "officer", t: "Everything is fine. [Welcome] to Dubai.", pt: "Está tudo certo. Bem-vindos a Dubai." },
-          { who: "you", t: "Thank you very much!", pt: "Muito obrigada!" }
+          { who: "you", t: "Thank you very much!", pt: "Muito obrigada!", cam: "family" }
         ],
         extra: ["tickets", "sister", "work", "three"],
         questions: [
@@ -163,31 +176,31 @@ window.HD_CONTENT.journeys.push({
           { t: "Yes, I do it.", why: "Say “Yes, I do.” or “Yes, here they are.”", whyPt: "Diga “Yes, I do.” ou “Yes, here they are.” (Sim, aqui estão.)" },
           { t: "No, thank you.", why: "“No, thank you” is how you refuse an offer. He wants to see the visas.", whyPt: "“No, thank you” serve para recusar uma oferta. Ele quer ver os vistos." }
         ] },
-        { who: "officer", t: "Who is this lady?", pt: "Quem é esta senhora?" },
+        { who: "officer", t: "Who is this lady?", pt: "Quem é esta senhora?", cam: "grandma" },
         { choose: [
           { t: "She’s my mother. She doesn’t speak English.", ok: true },
           { t: "She’s my husband.", why: "Careful: “husband” means “marido”! Say “She’s my mother.”", whyPt: "Cuidado: “husband” significa marido! Diga “She’s my mother.”" },
           { t: "He’s my mother.", why: "For a woman we say “she”: “She’s my mother.”", whyPt: "Para mulher dizemos “she”: “She’s my mother.”" }
         ] },
-        { who: "officer", t: "And this lady?", pt: "E esta senhora?" },
+        { who: "officer", t: "And this lady?", pt: "E esta senhora?", cam: "nanny" },
         { choose: [
           { t: "She’s our nanny. She lives with us.", ok: true },
           { t: "She’s our grandmother.", why: "Your mother is the children’s grandmother. This lady is the nanny.", whyPt: "Sua mãe é a avó das crianças. Esta senhora é a babá (nanny)." },
           { t: "Nanny is she.", why: "Word order: “She’s our nanny.”", whyPt: "Ordem das palavras: “She’s our nanny.”" }
         ] },
-        { who: "officer", t: "Are these your children?", pt: "Estas crianças são suas?" },
+        { who: "officer", t: "Are these your children?", pt: "Estas crianças são suas?", cam: "twins" },
         { choose: [
           { t: "Yes, they are. They’re twins.", ok: true },
           { t: "Yes, it is.", why: "“These” is plural, so we say “Yes, they are.”", whyPt: "“These” é plural, então dizemos “Yes, they are.”" },
           { t: "No, thank you.", why: "He asked a yes/no question. Answer “Yes, they are.”", whyPt: "Ele fez uma pergunta de sim ou não. Responda “Yes, they are.”" }
         ] },
-        { who: "officer", t: "How old are they?", pt: "Quantos anos eles têm?" },
+        { who: "officer", t: "How old are they?", pt: "Quantos anos eles têm?", cam: "twins" },
         { choose: [
           { t: "They’re two years old.", ok: true },
           { t: "They have two years.", why: "In English we say “They are two”, not “They have two years”.", whyPt: "Em inglês, a idade usa o verbo “to be”: “They are two”. Não se diz “They have two years”, como em português." },
           { t: "They are fine.", why: "He asked their age: “They’re two years old.”", whyPt: "Ele perguntou a idade: “They’re two years old.”" }
         ] },
-        { who: "officer", t: "Please look at the camera, everybody.", pt: "Por favor, todos olhem para a câmera." },
+        { who: "officer", t: "Please look at the camera, everybody.", pt: "Por favor, todos olhem para a câmera.", cam: "camera" },
         { choose: [
           { t: "OK. Like this?", ok: true },
           { t: "No photos, please.", why: "This is a security camera. Everybody must look at it.", whyPt: "É uma câmera de segurança. Todos precisam olhar para ela." },

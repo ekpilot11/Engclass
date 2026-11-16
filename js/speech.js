@@ -68,9 +68,27 @@
     emit();
   };
 
+  /* Word times and loudness of the recordings (audio/times-<pack>.js, from tools/make_timings.py).
+     They are a bonus for the animated scenes: nothing waits for them. */
+  var times = {};
+  var timesAsked = {};
+  window.HDAudioTimes = function (name, data) {
+    Object.keys(data).forEach(function (k) { times[k] = data[k]; });
+  };
+  function loadTimes(name) {
+    if (!AUDIO || !AUDIO.times || !AUDIO.times[name] || timesAsked[name]) return;
+    timesAsked[name] = true;
+    var s = document.createElement('script');
+    s.src = AUDIO.times[name];
+    s.async = true;
+    s.onerror = function () { timesAsked[name] = false; };
+    document.head.appendChild(s);
+  }
+
   function loadPack(name, cb) {
     cb = cb || function () {};
     if (!AUDIO || !AUDIO.packs[name]) { cb(false); return; }
+    loadTimes(name);
     if (packs[name] === 'loaded') { cb(true); return; }
     if (packs[name] === 'failed') { cb(false); return; }
     (waiters[name] = waiters[name] || []).push(cb);
@@ -117,15 +135,17 @@
 
   var stopClip = null;   // cleans up the clip that is playing now
 
-  function playClip(k, it, onstart, done) {
+  function playClip(k, it, onstart, done, ontime) {
     var p = getPlayer();
-    var finished = false, started = false, watch = null;
+    var finished = false, started = false, watch = null, frame = null;
     function cleanup() {
       p.removeEventListener('playing', onPlaying);
       p.removeEventListener('ended', onEnded);
       p.removeEventListener('error', onError);
       p.removeEventListener('loadedmetadata', onMeta);
       clearTimeout(watch);
+      if (frame !== null && window.cancelAnimationFrame) window.cancelAnimationFrame(frame);
+      frame = null;
       if (stopClip === cleanup) stopClip = null;
     }
     function finish(result) {
@@ -134,7 +154,20 @@
       cleanup();
       done(result);
     }
-    function onPlaying() { unlocked = true; if (!started) { started = true; state.blocked = false; if (onstart) onstart(); } }
+    // Tell the listener where the recording is, many times a second (for the words that light up).
+    function clock() {
+      if (finished) return;
+      try { ontime(p.currentTime * 1000); } catch (e) { /* ignore */ }
+      frame = window.requestAnimationFrame(clock);
+    }
+    function onPlaying() {
+      unlocked = true;
+      if (started) return;
+      started = true;
+      state.blocked = false;
+      if (onstart) onstart();
+      if (ontime && window.requestAnimationFrame) clock();
+    }
     function onEnded() { finish('ok'); }
     function onMeta() {
       var d = p.duration;
@@ -320,16 +353,16 @@
 
   /* ================================================================ playing sentences */
 
-  function playOne(it, token, onstart, done) {
+  function playOne(it, token, onstart, done, ontime) {
     if (!recordedOn() || !hasRecording(it)) { ttsOne(it, onstart, done); return; }
     var k = keyFor(it);
     if (clips[k]) {
       playClip(k, it, onstart, function (result) {
         if (token !== state.token) return;
-        if (result === 'retry') playOne(it, token, onstart, done);
+        if (result === 'retry') playOne(it, token, onstart, done, ontime);
         else if (result === 'fallback') ttsOne(it, onstart, done);
         else done('ok');
-      });
+      }, ontime);
       return;
     }
     // The pack with this sentence isn't loaded yet: load it, or use the device voice after 4 seconds.
@@ -340,7 +373,7 @@
       waited = true;
       clearTimeout(t);
       if (token !== state.token) return;
-      if (ok && clips[k]) playOne(it, token, onstart, done);
+      if (ok && clips[k]) playOne(it, token, onstart, done, ontime);
       else ttsOne(it, onstart, done);
     });
   }
@@ -358,6 +391,7 @@
   /*
    * Say a list of { text, who, fx, slow } one after the other.
    * cb.onItem(i) when item i starts; cb.onDone({ canceled }) exactly once at the end.
+   * cb.onTime(i, ms) many times a second while a recording of item i plays (not with device voices).
    */
   function sayAll(items, cb) {
     cb = cb || {};
@@ -385,7 +419,8 @@
       var idx = i++;
       playOne(items[idx], token,
         function () { if (token === state.token && cb.onItem) cb.onItem(idx); },
-        function () { if (token === state.token) next(); });
+        function () { if (token === state.token) next(); },
+        cb.onTime ? function (ms) { if (token === state.token) cb.onTime(idx, ms); } : null);
     }
     next();
     return function () { if (token === state.token) stop(); };
@@ -395,8 +430,21 @@
     opts = opts || {};
     return sayAll([{ text: text, who: who || 'teacher', fx: opts.fx || '', slow: !!opts.slow }], {
       onItem: opts.onstart ? function () { opts.onstart(); } : null,
-      onDone: opts.onend || null
+      onDone: opts.onend || null,
+      onTime: opts.ontime ? function (i, ms) { opts.ontime(ms); } : null
     });
+  }
+
+  /* When each word of a recorded sentence starts and ends (ms), and its loudness curve.
+     null when the sentence has no recording, the times are not loaded, or device voices are in use. */
+  function timesFor(text, who, fx) {
+    var it = { text: text, who: who || 'teacher', fx: fx || '' };
+    if (!recordedOn() || !hasRecording(it)) return null;
+    var t = times[keyFor(it)];
+    if (!t || !t.w) return null;
+    var words = [];
+    for (var i = 0; i + 1 < t.w.length; i += 2) words.push([t.w[i], t.w[i + 1]]);
+    return { words: words, env: t.e || '', step: 50 };
   }
 
   function stop() {
@@ -586,6 +634,7 @@
     available: function (key) { return voicesForAccent(key).length > 0; },
     say: say,
     sayAll: sayAll,
+    timesFor: timesFor,
     stop: stop,
     listen: listen,
     compare: compare,

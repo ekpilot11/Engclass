@@ -80,6 +80,43 @@ def tts(voice_id, text, model='eleven_multilingual_v2', settings=None):
     return call('POST', f'/v1/text-to-speech/{voice_id}?output_format=mp3_44100_128', body, raw=True)
 
 
+class ApiError(Exception):
+    def __init__(self, code, message):
+        super().__init__(f'ElevenLabs error {code}: {message[:300]}')
+        self.code = code
+        self.message = message
+
+
+def align(mp3_path, text, timeout=120):
+    """Forced alignment: when each word of `text` is spoken in a recording.
+    Returns [(word, start_seconds, end_seconds)]. The API key needs the "Forced Alignment" permission;
+    without it this raises ApiError (code 401), so the caller can use another method."""
+    boundary = 'hd' + hashlib.sha1(os.urandom(16)).hexdigest()
+    with open(mp3_path, 'rb') as f:
+        audio = f.read()
+    body = (f'--{boundary}\r\nContent-Disposition: form-data; name="text"\r\n\r\n{text}\r\n'
+            f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="clip.mp3"\r\n'
+            f'Content-Type: audio/mpeg\r\n\r\n').encode('utf-8') + audio + f'\r\n--{boundary}--\r\n'.encode()
+    headers = {'xi-api-key': KEY, 'Accept': 'application/json', 'Content-Type': f'multipart/form-data; boundary={boundary}'}
+    for attempt in range(3):
+        req = urllib.request.Request(API + '/v1/forced-alignment', data=body, headers=headers, method='POST')
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                res = json.loads(r.read())
+                return [(w['text'], float(w['start']), float(w['end'])) for w in res.get('words', []) if w.get('text', '').strip()]
+        except urllib.error.HTTPError as e:
+            msg = e.read().decode('utf-8', 'replace')
+            if e.code in (429, 500, 502, 503) and attempt < 2:
+                time.sleep(5 * (attempt + 1))
+                continue
+            raise ApiError(e.code, msg)
+        except (urllib.error.URLError, TimeoutError) as e:
+            if attempt < 2:
+                time.sleep(5 * (attempt + 1))
+                continue
+            raise ApiError(0, str(e))
+
+
 def search(accent=None, gender=None, age=None, n=10, text=None):
     q = {'page_size': 50, 'language': 'en', 'sort': 'usage_character_count_1y'}
     if accent:
