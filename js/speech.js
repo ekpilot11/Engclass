@@ -638,6 +638,7 @@
     stop: stop,
     listen: listen,
     compare: compare,
+    words: words,
     onChange: function (fn) { state.listeners.push(fn); },
     offChange: function (fn) { state.listeners = state.listeners.filter(function (x) { return x !== fn; }); }
   };

@@ -45,7 +45,8 @@
     var frame = el('div', 'sv-frame');
     var drift = el('div', 'sv-drift');
     var img = el('img', 'sv-img');
-    img.src = opts.src;
+    if (opts.src) img.src = opts.src;
+    else frame.hidden = true;            // no picture: only the speaker's line is shown
     img.alt = opts.alt || '';
     img.decoding = 'async';
     img.draggable = false;
@@ -235,17 +236,22 @@
         spans: spans, starts: starts, env: (t && t.env) || '', step: (t && t.step) || 50,
         hits: o.hidden ? {} : findHits(words.map(norm)), at: -1, live: false
       };
-      root.classList.remove('speaking', 'whole');
+      root.classList.remove('speaking', 'whole', 'lit');
     }
-    /* The sound of the line starts. Without word times the whole line lights up. */
-    function start() {
+    /* The sound of the line starts. Without word times the whole line lights up.
+       quiet: the caller moves the portrait itself with level() (a live voice), so no pulsing by itself. */
+    function start(quiet) {
       if (!cur) return;
       cur.live = true;
       root.classList.add('speaking');
       if (!cur.starts) {
-        root.classList.add('whole');
+        root.classList.add(quiet ? 'lit' : 'whole');
         for (var k in cur.hits) { if (Object.prototype.hasOwnProperty.call(cur.hits, k)) { showCard(cur.hits[k]); break; } }
       }
+    }
+    /* How loud a live voice is right now (0 to 1): moves the speaker's portrait. */
+    function level(v) {
+      face.style.setProperty('--v', clamp(+v || 0, 0, 1).toFixed(2));
     }
     function tick(ms) {
       if (!cur || !cur.starts) return;
@@ -266,7 +272,7 @@
     }
     /* The line is over: everything was said. */
     function rest() {
-      root.classList.remove('speaking', 'whole');
+      root.classList.remove('speaking', 'whole', 'lit');
       face.style.setProperty('--v', '0');
       if (cur) {
         cur.live = false;
@@ -278,7 +284,7 @@
     function say(title, text, ptText, who) {
       hideCard(0);
       cur = null;
-      root.classList.remove('speaking', 'whole');
+      root.classList.remove('speaking', 'whole', 'lit');
       setFace(who || null);
       if (title) nameEl.textContent = title;
       wordsEl.className = 'sv-words plain';
@@ -307,7 +313,7 @@
 
     wide();
     return {
-      el: root, show: show, start: start, tick: tick, rest: rest, say: say,
+      el: root, show: show, start: start, tick: tick, rest: rest, say: say, level: level,
       focus: focus, wide: wide, has: function (name) { return !!spots[name]; },
       setHidden: setHidden, setPt: setPt, setNote: setNote, setPlaying: setPlaying, destroy: destroy
     };

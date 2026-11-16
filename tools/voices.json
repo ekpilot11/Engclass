@@ -17,6 +17,10 @@
       "crew":      { "id": "pFZP5JQG7iQjIQuC4Bku", "label": "Lily (British English, ElevenLabs)" },
       "crew2":     { "id": "IKne3meq5aSn9XLyUdCD", "label": "Charlie (Australian English, ElevenLabs)" },
       "passenger": { "id": "iP95p4xoKVk53GoZ742B", "label": "Chris (American English, ElevenLabs)" }
+    },
+    "liveVoices": {
+      "officer":   { "id": "C5DUoxdM3kV00iwaR3sK", "label": "Shreif (Arabic-accented English, ElevenLabs)",
+                     "why": "ElevenLabs does not allow the recorded officer voice (Emirati) for live agents: its owner switched on live moderation." }
     }
   }
 }

@@ -252,6 +252,41 @@ window.HD_CONTENT.journeys.push({
       ],
       // Challenge "Final test": mixed questions from this lesson, without help.
       test: true,
+      // Challenge "Live conversation": she speaks with an AI that plays the officer and answers whatever she
+      // says. tools/make_agents.py turns this into an ElevenLabs agent. The app shows the goals and the hints;
+      // the AI is told the role, the scene, the flow and when each goal counts.
+      freeTalk: {
+        who: "officer",
+        title: "Talk to the officer",
+        pt: "Fale com o oficial",
+        intro: "This is a real conversation. You speak, and the officer answers what you say. There is no script, so it is different every time.",
+        introPt: "Esta é uma conversa de verdade. Você fala e o oficial responde ao que você disser. Não há roteiro: cada vez é diferente.",
+        first: "Good evening. Next, please.",
+        role: "a passport control officer at Dubai International Airport (DXB)",
+        scene: "She arrives at your desk with her family: her mother (who speaks no English), the family’s nanny, and her twins, a boy and a girl aged two. They are moving to Dubai to live.",
+        flow: "Run a natural passport check. In your own order and words, find out: (1) the passports and visas of everybody, which she should hand over after greeting you; (2) the purpose of the visit; (3) who the two ladies with her are; (4) whether the children are hers, and how old they are. Then ask everybody to look at the camera, and finish with “Welcome to Dubai.”",
+        twist: "Your second turn, right after she greets you, must be this one long question, word for word: “Do you have the entry permits or the residence visas for everybody who is travelling with you today?” It is long on purpose, so that she can practise asking you to repeat. When she asks you to repeat or to speak more slowly, do it gladly, in short and simple words (“Do you have visas for everybody?”). If she answers without asking, simply go on.",
+        extras: "how long the flight was, where in Dubai they will live, what her husband does, whether the children slept on the plane",
+        goals: [
+          { id: "greet", t: "Greet the officer and give him the passports", pt: "Cumprimente o oficial e entregue os passaportes",
+            when: "she greeted you and offered or handed over the passports or visas",
+            hints: [{ t: "Here are our passports and visas.", pt: "Aqui estão nossos passaportes e vistos." }] },
+          { id: "purpose", t: "Say why you are coming to Dubai", pt: "Diga por que vocês estão vindo para Dubai",
+            when: "she said why they are coming (moving, living here, joining her husband, his work), in understandable English",
+            hints: [{ t: "We are moving to Dubai.", pt: "Estamos nos mudando para Dubai." }] },
+          { id: "family", t: "Explain who your mother and the nanny are", pt: "Explique quem são sua mãe e a babá",
+            when: "she said who both ladies are: her mother, and the family’s nanny",
+            hints: [{ t: "This is my mother. She doesn’t speak English.", pt: "Esta é minha mãe. Ela não fala inglês." },
+                    { t: "She is our nanny.", pt: "Ela é nossa babá." }] },
+          { id: "age", t: "Say how old the children are", pt: "Diga a idade das crianças",
+            when: "she said the children’s age in understandable English",
+            hints: [{ t: "They are twins. They’re two years old.", pt: "Eles são gêmeos. Eles têm dois anos." }] },
+          { id: "repeat", t: "Ask him to repeat more slowly", pt: "Peça para ele repetir mais devagar",
+            when: "she herself asked you to repeat, or to speak more slowly (for example “Sorry, could you say that again?”). If she never asks, this goal stays open",
+            hints: [{ t: "Sorry, could you say that again more slowly, please?", pt: "Desculpe, você pode repetir mais devagar, por favor?" }] }
+        ],
+        keywords: ["passport", "passports", "visa", "visas", "nanny", "twins", "mother", "Dubai", "entry permit", "moving"]
+      },
       phrases: [
         { t: "Here are our passports and visas.", pt: "Aqui estão nossos passaportes e vistos." },
         { t: "We are moving to Dubai.", pt: "Estamos nos mudando para Dubai." },

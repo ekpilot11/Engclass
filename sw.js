@@ -3,7 +3,7 @@
  * Network first: when online you always get the newest version; when offline
  * (for example on the plane) the last version you opened still works.
  */
-var CACHE = 'hello-dubai-v4';
+var CACHE = 'hello-dubai-v5';
 var ASSETS = [
   './',
   './index.html',
@@ -20,6 +20,8 @@ var ASSETS = [
   './audio/sfx.js',
   './js/game.js',
   './js/stage.js',
+  './js/agents.js',
+  './js/talk-ai.js',
   './js/app.js',
   './manifest.webmanifest',
   './icons/icon.svg',

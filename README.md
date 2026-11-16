@@ -31,12 +31,17 @@ play on the lesson picture like a little film. The camera moves to the person wh
 the words light up while they are spoken, the speaker's portrait moves with the voice, and a word card pops up
 when a word of the lesson is said. Other lessons keep the chat layout until their camera places are set.
 
-**Challenges.** Lessons can have three harder activities (so far: Passport control). They don't count for the
+**Challenges.** Lessons can have four harder activities (so far: Passport control). They don't count for the
 passport stamp, so nothing she already earned changes.
 
 - **Build the sentence**: tap mixed-up words into the right order. There are trap words ("have" in
   "They are two"), and a wrong answer explains the mistake. First with sound, then from the Portuguese only.
 - **Catch the number**: hear a line with the words hidden and pick the number (14 or 40? 60 or 16?).
+- **Live conversation** ("Talk to the officer"): she speaks into the phone and an AI that plays the passport
+  officer answers whatever she says, in his voice. There is no script. The page shows five goals ("Say why you
+  are coming to Dubai") that tick off while they talk, a hint for each goal, and at the end his praise and up to
+  three corrections with a short explanation in Portuguese. It needs the internet and the microphone, and it
+  costs ElevenLabs credits (see "Live conversation" below).
 - **Final test**: 10 mixed questions with no Portuguese, hidden words, two listens per line and 3 hearts.
   8 right answers turn the lesson's stamp **gold**.
 
@@ -71,6 +76,10 @@ family in a voice audition. The voices are listed in `tools/voices.json`:
 | Baggage services agent | Rachel, Filipino English |
 | Captain / flight attendants | George, British / Lily, British and Charlie, Australian |
 | Passenger on the plane | Chris, American |
+
+The live conversation uses the same voices. One exception: ElevenLabs does not allow the "Emirati man" voice
+for live conversations, so the live passport officer speaks with "Shreif" (also Arabic-accented English).
+`liveVoices` in `tools/voices.json` holds such replacements.
 
 **Kokoro** (open source, Apache-2.0) British and American voices are used for any new sentence that is
 recorded without ElevenLabs.
@@ -200,6 +209,50 @@ estimate from the pauses. Run it again after `make_audio.py` records new sentenc
 where a better source has become available. With device voices, or without word times, a whole line lights up
 at once.
 
+### Live conversation (ElevenLabs Agents)
+
+A lesson gets a live conversation when its stop has a `freeTalk` and an agent was made for it.
+
+```js
+freeTalk: {
+  who: "officer",                       // whose voice and portrait
+  title: "Talk to the officer", pt: "Fale com o oficial",
+  intro: "...", introPt: "...",          // shown before the conversation
+  first: "Good evening. Next, please.",  // the AI's first sentence
+  role: "a passport control officer at Dubai International Airport (DXB)",
+  scene: "...", flow: "...", twist: "...", extras: "...",   // what the AI is told (never shown to her)
+  goals: [{ id: "purpose", t: "Say why you are coming to Dubai", pt: "...",
+            when: "she said why they are coming ...",       // when the AI may tick the goal
+            hints: [{ t: "We are moving to Dubai.", pt: "..." }] }],
+  keywords: ["passport", "visa"]         // words the speech recognition should expect
+}
+```
+
+```bash
+.venv/bin/python tools/make_agents.py            # create or update the agents, write js/agents.js
+.venv/bin/python tools/make_agents.py --show     # print what would be sent; change nothing
+.venv/bin/python tools/test_agents.py            # three simulated learners talk to the agent, in text
+node tools/list-speech.js > /tmp/speech.json     # the hint sentences join the lesson's sound pack
+.venv/bin/python tools/make_audio.py /tmp/speech.json ~/kokoro
+```
+
+- **What it costs.** A conversation uses about 400 ElevenLabs credits a minute (about 8 US cents), from the
+  same monthly credits as the recordings. A simulated test conversation uses about 150 credits.
+- **Limits and privacy.** An agent only accepts conversations from the website's own address (`SITE_HOSTS` in
+  `tools/make_agents.py`), so the agent id in `js/agents.js` is not a secret. One conversation ends after
+  5 minutes, there are at most 12 conversations a day, and her voice is not recorded. ElevenLabs keeps the
+  text of a conversation for 30 days. The API key needs the "ElevenLabs Agents: Write" permission and is never
+  stored in this project.
+- **The website's side.** `js/talk-ai.js` connects (WebRTC first, a plain WebSocket if that fails) with the
+  official ElevenLabs client, which is bundled in `js/vendor/elevenlabs-client.js` and loaded only on the
+  conversation page. `tools/build-vendor.sh` builds that file again, also for a newer version. The page ends
+  a call when she leaves it, or when the app is in the background for 20 seconds, so that no minutes are wasted.
+- **Corrections are checked twice.** The AI may only report mistakes from a short list of kinds
+  (`MISTAKES` in `tools/make_agents.py`), and the page shows a correction only if she really said the quoted
+  words and the corrected sentence is different.
+- **Testing.** A real voice conversation can only be tested on a phone or computer with a microphone, on the
+  published website. After changing the AI's instructions, run `tools/test_agents.py` and read the transcripts.
+
 ## Files
 
 ```
@@ -215,6 +268,9 @@ js/pictograms.js           airport sign pictograms (SVG)
 img/                       lesson pictures (generated by tools/make_images.py); img/stage/ has the larger scenes
 js/game.js                 miles, daily goal, streak, levels, review boxes, game sounds, confetti
 js/stage.js                the animated scene: camera, words that light up, word cards
+js/talk-ai.js              the connection for the live conversation
+js/agents.js               the AI conversation partner of each lesson (generated by tools/make_agents.py)
+js/vendor/                 the ElevenLabs client and the licenses of its libraries (built by tools/build-vendor.sh)
 js/app.js                  pages and activities
 audio/                     recorded sentences (generated by tools/make_audio.py)
 audio/times-*.js           when each word is spoken (generated by tools/make_timings.py)

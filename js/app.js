@@ -61,7 +61,9 @@
     download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>',
     flame: '<path d="M12 2.5c.6 3.4 5.5 5.6 5.5 11.3a5.5 5.5 0 0 1-11 0c0-2.2 1-3.9 2.3-5.3.2 1.5.9 2.5 1.9 3 .2-3.2-.4-5.8 1.3-9z" fill="currentColor" stroke="none"/>',
     heart: '<path d="M12 20.5C7.6 17.4 3 13.6 3 9.2 3 6.5 5 4.5 7.6 4.5c1.7 0 3.3.9 4.4 2.3 1.1-1.4 2.7-2.3 4.4-2.3C19 4.5 21 6.5 21 9.2c0 4.4-4.6 8.2-9 11.3z" fill="currentColor" stroke="none"/>',
-    star: '<path d="M12 3l2.7 5.6 6.1.8-4.5 4.3 1.1 6.1L12 16.9l-5.4 2.9 1.1-6.1L3.2 9.4l6.1-.8z" fill="currentColor" stroke="none"/>'
+    star: '<path d="M12 3l2.7 5.6 6.1.8-4.5 4.3 1.1 6.1L12 16.9l-5.4 2.9 1.1-6.1L3.2 9.4l6.1-.8z" fill="currentColor" stroke="none"/>',
+    bulb: '<path d="M9 18h6"/><path d="M10 21.5h4"/><path d="M12 2.5a6 6 0 0 0-3.7 10.7c.6.5 1 1.2 1.1 1.8h5.2c.1-.6.5-1.3 1.1-1.8A6 6 0 0 0 12 2.5z"/>',
+    keyboard: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7.5 14h9"/>'
   };
   function icon(name, cls) {
     var s = h('span', { class: 'ico' + (cls ? ' ' + cls : ''), 'aria-hidden': 'true' });
@@ -100,8 +102,9 @@
 
   var KEY = 'hello-dubai-v1';
   var store = {
-    settings: { accent: 'mixed', slow: false, text: true, pt: true, source: 'recorded', goal: GameKit.DEFAULT_GOAL, sfx: true },
-    progress: {}, stamps: {}, game: {}
+    settings: { accent: 'mixed', slow: false, text: true, pt: true, source: 'recorded', goal: GameKit.DEFAULT_GOAL, sfx: true, level: 'easy' },
+    progress: {}, stamps: {}, game: {},
+    talk: {}               // live conversations: how many seconds were used this month, on this phone
   };
   (function load() {
     try {
@@ -113,6 +116,7 @@
       if (d.progress && typeof d.progress === 'object') store.progress = d.progress;
       if (d.stamps && typeof d.stamps === 'object') store.stamps = d.stamps;
       if (d.game && typeof d.game === 'object' && !Array.isArray(d.game)) store.game = d.game;
+      if (d.talk && typeof d.talk === 'object' && !Array.isArray(d.talk)) store.talk = d.talk;
     } catch (e) { /* private mode or blocked storage: start fresh */ }
   })();
   function save() {
@@ -152,8 +156,10 @@
     talk:      { title: 'Your turn',        pt: 'Sua vez',            desc: 'Choose what to say' },
     build:     { title: 'Build the sentence', pt: 'Monte a frase',    desc: 'Put the words in order' },
     numbers:   { title: 'Catch the number', pt: 'Pegue o número',     desc: 'Listen for the number' },
+    free:      { title: 'Live conversation', pt: 'Conversa ao vivo',  desc: 'Speak freely: an AI answers you' },
     test:      { title: 'Final test',       pt: 'Teste final',        desc: 'No help: earn the gold stamp' }
   };
+  var Live = window.HDLive || null;   // js/talk-ai.js
   /* The activities of a lesson. Finishing all of them gives the passport stamp. */
   function activitiesOf(stop) {
     var list = [];
@@ -170,10 +176,16 @@
     var list = [];
     if (stop.build) list.push('build');
     if (stop.numbers) list.push('numbers');
+    if (stop.freeTalk && Live && Live.agent(stop.id)) list.push('free');
     if (stop.test) list.push('test');
     return list;
   }
   function allActs(stop) { return activitiesOf(stop).concat(challengesOf(stop)); }
+  /* What an activity is called in this lesson: the live conversation has its own name ("Talk to the officer"). */
+  function actName(stop, act) {
+    var t = act === 'free' && stop.freeTalk;
+    return { title: (t && t.title) || ACT[act].title, pt: (t && t.pt) || ACT[act].pt };
+  }
   var GOLD_PASS = 8;       // right answers (of 10) in the final test for the gold stamp
   function pkey(stop, act) { return stop.id + '-' + act; }
   function stopProgress(stop) {
@@ -219,7 +231,7 @@
     clear(app);
     app.appendChild(view);
     window.scrollTo(0, 0);
-    var title = r.view === 'activity' ? ACT[r.act].title + ' · ' + r.stop.title
+    var title = r.view === 'activity' ? actName(r.stop, r.act).title + ' · ' + r.stop.title
       : r.view === 'stop' ? r.stop.title
       : r.view === 'phrases' ? 'Phrasebook'
       : r.view === 'review' ? 'Daily review'
@@ -437,21 +449,31 @@
   }
 
   /* The animated scene of a lesson (js/stage.js). null when the lesson has no camera places or picture yet. */
+  function stagePerson(who) {
+    var ch = C.characters[who];
+    return ch ? { name: ch.name, src: IMG[Keys.person(who)] || null, emoji: ch.avatar } : null;
+  }
   function makeStage(stop, extra) {
     var key = Keys.stage(stop);
     if (!window.HDStage || !stop.imgSpots || !IMG[key]) return null;
     var st = window.HDStage.create({
       src: IMG[key], alt: stop.intro, spots: stop.imgSpots, ptOn: ptOn(),
-      person: function (who) {
-        var ch = C.characters[who];
-        return ch ? { name: ch.name, src: IMG[Keys.person(who)] || null, emoji: ch.avatar } : null;
-      },
+      person: stagePerson,
       vocab: (stop.vocab || []).map(function (v) {
         return { w: v.w, pt: v.pt, src: IMG[Keys.vocab(stop, v)] || null, emoji: v.e, item: v };
       }),
       onCard: function (v) { showWord(stop, v.item); },
       onPlay: extra && extra.onPlay
     });
+    cleanup.push(st.destroy);
+    return st;
+  }
+  /* The scene for a live conversation. A lesson without camera places gets its picture without camera
+     moves, or only the speaker's line. */
+  function liveStage(stop) {
+    var st = makeStage(stop);
+    if (st) return st;
+    st = window.HDStage.create({ src: IMG[Keys.scene(stop)] || '', alt: stop.intro, spots: {}, ptOn: ptOn(), person: stagePerson, vocab: [] });
     cleanup.push(st.destroy);
     return st;
   }
@@ -765,10 +787,11 @@
         h('ol', { class: 'acts' }, extras.map(function (a) {
           var p = store.progress[pkey(stop, a)];
           var gold = a === 'test' && !!Game.gold(stop.id);
+          var name = actName(stop, a);
           return h('li', null, h('a', { class: 'act-row extra' + (p ? ' done' : '') + (gold ? ' gold' : ''), href: '#' + pkey(stop, a) },
-            h('span', { class: 'ar-num' }, gold ? icon('star') : p ? icon('check') : icon(a === 'test' ? 'star' : 'flame')),
-            h('span', { class: 'ar-main' }, h('span', { class: 'ar-title' }, ACT[a].title),
-              h('span', { class: 'ar-desc' }, ptOn() ? ACT[a].pt + ' · ' + ACT[a].desc : ACT[a].desc)),
+            h('span', { class: 'ar-num' }, gold ? icon('star') : p ? icon('check') : icon(a === 'test' ? 'star' : a === 'free' ? 'mic' : 'flame')),
+            h('span', { class: 'ar-main' }, h('span', { class: 'ar-title' }, name.title),
+              h('span', { class: 'ar-desc' }, ptOn() ? name.pt + ' · ' + ACT[a].desc : ACT[a].desc)),
             h('span', { class: 'ar-score' }, p ? (p.total ? p.best + '/' + p.total : 'Done') : ''),
             icon('forward', 'ar-go')));
         }))));
@@ -807,17 +830,18 @@
     var main = h('main', { class: 'wrap act' });
     var acts = activitiesOf(stop);
     var i = acts.indexOf(act);
+    var name = actName(stop, act);
     main.appendChild(h('div', { class: 'act-head' },
       h('p', { class: 'kicker' }, stop.title + ' · ' + (i >= 0 ? (i + 1) + ' of ' + acts.length : 'Challenge')),
-      h('h1', null, ACT[act].title),
-      pt(ACT[act].pt, 'p', 'act-pt')));
+      h('h1', null, name.title),
+      pt(name.pt, 'p', 'act-pt')));
     main.appendChild(audioNotice());
     var body = h('div', { class: 'act-body' });
     main.appendChild(body);
     var ctx = {
       stop: stop, act: act, body: body,
-      // note: optional [english, portuguese] line for the result page
-      finish: function (score, total, note) { showResult(ctx, score, total, note); }
+      // note: optional [english, portuguese] line for the result page; extra: optional element shown under it
+      finish: function (score, total, note, extra) { showResult(ctx, score, total, note, extra); }
     };
     session = { earned: 0, goalReached: false, levelUp: null };
     RUN[act](ctx);
@@ -825,7 +849,7 @@
     return root;
   }
 
-  function showResult(ctx, score, total, note) {
+  function showResult(ctx, score, total, note, extra) {
     SP.stop();
     var key = pkey(ctx.stop, ctx.act);
     var prev = store.progress[key];
@@ -839,6 +863,7 @@
     }
     // the final test: enough right answers turn the stamp gold (once)
     var isTest = ctx.act === 'test';
+    var isTalk = ctx.act === 'free';
     var passed = isTest && score >= GOLD_PASS;
     var newGold = passed && Game.setGold(ctx.stop.id);
     if (newGold) earn(GameKit.MILES.gold);
@@ -853,25 +878,28 @@
     var acts = allActs(ctx.stop);
     var nextAct = acts[acts.indexOf(ctx.act) + 1];
     var nextStop = stops[stops.indexOf(ctx.stop) + 1];
-    var next = nextAct ? { href: '#' + pkey(ctx.stop, nextAct), label: 'Next: ' + ACT[nextAct].title }
+    var next = nextAct ? { href: '#' + pkey(ctx.stop, nextAct), label: 'Next: ' + actName(ctx.stop, nextAct).title }
       : nextStop ? { href: '#' + nextStop.id, label: 'Next stop: ' + nextStop.title }
       : { href: '#', label: 'Back to the journey' };
 
     clear(ctx.body);
-    var retry = h('button', { class: 'btn', type: 'button' }, icon('retry'), 'Try again');
+    var retry = h('button', { class: 'btn', type: 'button' }, icon('retry'), isTalk ? 'Talk again' : 'Try again');
     retry.addEventListener('click', render);
     var good = isTest ? passed : ratio >= 0.7;
     ctx.body.appendChild(h('section', { class: 'result pop-in', 'aria-live': 'polite' },
       h('div', { class: 'result-badge' + (good ? ' good' : ' ok') }, icon(isTest ? (passed ? 'star' : 'retry') : 'check')),
       h('h2', null, title[0]),
       pt(title[1]),
-      total ? h('p', { class: 'result-score' }, h('strong', null, score + ' of ' + total), isTest ? ' correct' : ' correct the first time')
+      total ? h('p', { class: 'result-score' }, h('strong', null, score + ' of ' + total),
+                isTest ? ' correct' : isTalk ? (total === 1 ? ' goal reached' : ' goals reached') : ' correct the first time')
             : h('p', { class: 'result-score' }, 'Activity complete'),
       note ? h('div', { class: 'result-note' }, h('p', null, note[0]), pt(note[1])) : null,
+      extra || null,
       isTest && !passed ? h('div', { class: 'result-note' },
         h('p', null, 'You need ' + GOLD_PASS + ' right answers for the gold stamp.'),
         pt('Você precisa de ' + GOLD_PASS + ' respostas certas para o carimbo de ouro.')) : null,
-      !isTest && total && ratio < 1 ? h('p', { class: 'muted' }, 'Try again to improve. We keep your best score.') : null,
+      !isTest && total && ratio < 1 ? h('p', { class: 'muted' }, isTalk ? 'Talk again to reach more goals. We keep your best score.'
+        : 'Try again to improve. We keep your best score.') : null,
       milesEarned(streak),
       h('div', { class: 'result-actions' },
         h('a', { class: 'btn btn-primary', href: next.href }, next.label, icon('forward')),
@@ -2187,6 +2215,578 @@
         else if (q.type === 'n') askNumber(host, q.item, o, done);
         else if (q.type === 'b') askBuild(host, q.item, o, done);
         else { o.sv = makeStage(stop); askReply(host, stop, q.index, o, done); }
+      }
+    }
+  };
+
+  /* ================================================================ live conversation */
+  /*
+   * She speaks with an AI that plays a person of the lesson and answers whatever she says (js/talk-ai.js,
+   * tools/make_agents.py). The lesson's "freeTalk" has the goals and the model sentences for the hints.
+   * The AI reports each goal she reaches while they talk, and gives feedback at the end.
+   */
+
+  var TALK_LEVELS = [
+    { key: 'easy', label: 'Easy', speed: 0.85, words: true,
+      desc: 'Slow and simple. You can read what the other person says.',
+      descPt: 'Devagar e simples. Você pode ler o que a outra pessoa diz.' },
+    { key: 'normal', label: 'Normal', speed: 0.95, words: false,
+      desc: 'A calm, natural conversation. The words are hidden, so you listen first.',
+      descPt: 'Uma conversa calma e natural. As palavras ficam escondidas, para você ouvir primeiro.' },
+    { key: 'hard', label: 'Hard', speed: 1.05, words: false,
+      desc: 'Faster, like a busy airport, with questions you did not prepare.',
+      descPt: 'Mais rápido, como num aeroporto cheio, com perguntas que você não preparou.' }
+  ];
+  function talkLevel() {
+    for (var i = 0; i < TALK_LEVELS.length; i++) if (TALK_LEVELS[i].key === store.settings.level) return TALK_LEVELS[i];
+    return TALK_LEVELS[0];
+  }
+  var TALK_STATUS = {
+    loading: ['Getting ready…', 'Preparando…'],
+    connecting: ['Connecting… If your phone asks, allow the microphone.', 'Conectando… Se o celular pedir, permita o microfone.'],
+    speaking: ['Listen…', 'Ouça…'],
+    turn: ['Your turn. Speak now.', 'Sua vez. Fale agora.'],
+    hint: ['Listen to the hint, then say it.', 'Ouça a dica e depois fale.'],
+    ending: ['One moment: your feedback is coming…', 'Um momento: seu feedback está chegando…']
+  };
+  var TALK_PROBLEMS = {
+    mic: ['The microphone is not allowed. Tap Start again and choose “Allow” when your phone asks. If it doesn’t ask: on an iPhone, open Settings, then Safari, then Microphone, and choose “Ask” or “Allow”.',
+      'O microfone não está liberado. Toque em Start de novo e escolha “Permitir” quando o celular perguntar. Se ele não perguntar: no iPhone, abra Ajustes, depois Safari, depois Microfone, e escolha “Perguntar” ou “Permitir”.'],
+    nomic: ['No working microphone was found. If another app is using the microphone (a phone call, for example), close it and try again.',
+      'Nenhum microfone funcionando foi encontrado. Se outro aplicativo estiver usando o microfone (uma ligação, por exemplo), feche-o e tente de novo.'],
+    network: ['No connection. The live conversation needs the internet: check your Wi-Fi or mobile data and try again.',
+      'Sem conexão. A conversa ao vivo precisa de internet: confira o Wi-Fi ou os dados móveis e tente de novo.'],
+    limit: ['The limit for live conversations is reached for now. Try again later, or tomorrow.',
+      'O limite de conversas ao vivo foi atingido por enquanto. Tente de novo mais tarde ou amanhã.'],
+    other: ['The conversation could not start. Wait a moment and try again.',
+      'A conversa não pôde começar. Espere um pouco e tente de novo.'],
+    unsupported: ['This browser can’t use the microphone here. Open the website in Safari (iPhone) or Chrome (Android), not inside another app.',
+      'Este navegador não consegue usar o microfone aqui. Abra o site no Safari (iPhone) ou no Chrome (Android), e não dentro de outro aplicativo.']
+  };
+  function talkProblem(why, detail) {
+    var p = TALK_PROBLEMS[why] || TALK_PROBLEMS.other;
+    return [p[0], p[1], detail || ''];
+  }
+
+  /* How much live conversation was used this month, on this phone (every minute costs credits). */
+  function monthKey() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); }
+  function talkUsed() {
+    if (store.talk.month !== monthKey()) return { seconds: 0, calls: 0 };
+    return { seconds: store.talk.seconds || 0, calls: store.talk.calls || 0 };
+  }
+  function addTalkTime(seconds) {
+    if (!(seconds > 0)) return;
+    var u = talkUsed();
+    store.talk = { month: monthKey(), seconds: u.seconds + Math.round(seconds), calls: u.calls + 1 };
+    save();
+  }
+  function clockText(s) { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
+  function unquote(t) { return String(t || '').trim().replace(/^[“”"'‘’]+|[“”"'‘’]+$/g, '').trim(); }
+
+  /*
+   * The corrections of the AI that the page shows: at most three, and only real ones. A correction must
+   * change the words (not only spelling or a contraction), and she must really have said the quoted words
+   * (heard: her lines). This is a second guard; the AI's instructions are the first.
+   */
+  function realFixes(list, heard) {
+    var out = [];
+    (Array.isArray(list) ? list : []).forEach(function (c) {
+      if (!c || out.length >= 3) return;
+      var said = unquote(c.said), better = unquote(c.better);
+      var sw = SP.words(said), bw = SP.words(better);
+      if (!sw.length || !bw.length || sw.join(' ') === bw.join(' ')) return;
+      if (heard.length) {
+        var best = 0;
+        heard.forEach(function (line) {
+          var lw = SP.words(line);
+          var hit = sw.filter(function (w) { return lw.indexOf(w) >= 0; }).length;
+          best = Math.max(best, hit / sw.length);
+        });
+        if (best < 0.8) return;
+      }
+      if (out.some(function (o) { return same(o.said, said); })) return;
+      out.push({ said: said, better: better, why: String(c.why || '').trim() });
+    });
+    return out;
+  }
+
+  function goalRow(g, done) {
+    return h('li', { class: 'goal' + (done ? ' done' : '') },
+      h('span', { class: 'goal-mark', 'aria-hidden': 'true' }, icon('check')),
+      h('span', { class: 'goal-text' }, h('span', { class: 'goal-t' }, g.t), pt(g.pt, 'span', 'block')));
+  }
+  /* A model sentence she can tap to hear. */
+  function hintLine(hint, play) {
+    var b = h('button', { class: 'hint-line', type: 'button' }, icon('volume'),
+      h('span', null, h('span', { class: 'goal-say' }, hint.t), pt(hint.pt, 'span', 'block')));
+    b.addEventListener('click', play);
+    return b;
+  }
+  function hPt(text) { return ptOn() ? h('span', { class: 'h-pt', lang: 'pt-BR' }, ' · ' + text) : null; }
+
+  RUN.free = function (ctx) {
+    var stop = ctx.stop, body = ctx.body;
+    var talk = stop.freeTalk;
+    var agent = Live.agent(stop.id);
+    var goals = talk.goals;
+    var alive = true;
+    cleanup.push(function () { alive = false; });
+
+    mission(null);
+
+    /* ---------- before: the mission, the level, Start ---------- */
+    function mission(problem) {
+      clear(body);
+      var used = talkUsed();
+      var minutes = Math.round((agent.seconds || 300) / 60);
+      var label = h('span', null, 'Getting ready…');
+      var start = h('button', { class: 'btn btn-primary', type: 'button', disabled: true }, icon('mic'), label);
+      var startNote = h('div', { class: 'fb', 'aria-live': 'polite' });
+      var startBar = h('div', { class: 'act-foot live-start' }, start);
+
+      var seg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Level' });
+      var levelNote = h('div', { class: 'level-note' });
+      var levelBtns = TALK_LEVELS.map(function (lv) {
+        var b = h('button', { type: 'button' }, lv.label);
+        b.addEventListener('click', function () { store.settings.level = lv.key; save(); paintLevel(); });
+        seg.appendChild(b);
+        return b;
+      });
+      function paintLevel() {
+        var cur = talkLevel();
+        levelBtns.forEach(function (b, i) { b.setAttribute('aria-pressed', TALK_LEVELS[i] === cur ? 'true' : 'false'); });
+        clear(levelNote);
+        add(levelNote, [h('p', null, cur.desc), pt(cur.descPt)]);
+      }
+      paintLevel();
+
+      add(body, [
+        problem ? h('div', { class: 'fb-box fb-bad', role: 'alert' },
+          h('p', null, h('strong', null, problem[0])), pt(problem[1]),
+          problem[2] ? h('p', { class: 'muted small' }, 'Details: ' + problem[2]) : null) : null,
+        instr(talk.intro, talk.introPt),
+        h('section', { class: 'mission' },
+          h('h2', null, 'Your mission', hPt('Sua missão')),
+          h('ol', { class: 'goals' }, goals.map(function (g) { return goalRow(g, false); }))),
+        h('section', { class: 'mission' }, h('h2', null, 'Level', hPt('Nível')), seg, levelNote),
+        h('ul', { class: 'rules' },
+          h('li', null, icon('mic'), h('span', null, 'Your phone asks to use the microphone. Choose “Allow”.',
+            pt('O celular pede para usar o microfone. Escolha “Permitir”.', 'span', 'block'))),
+          h('li', null, icon('globe'), h('span', null, 'You need the internet. One conversation lasts ' + minutes + ' minutes at most.',
+            pt('Você precisa de internet. Uma conversa dura no máximo ' + minutes + ' minutos.', 'span', 'block'))),
+          h('li', null, icon('volume'), h('span', null, 'A quiet place helps. Headphones are even better.',
+            pt('Um lugar silencioso ajuda. Com fones de ouvido é ainda melhor.', 'span', 'block')))),
+        used.seconds ? h('p', { class: 'muted small' }, 'Live conversation this month, on this phone: '
+          + Math.max(1, Math.round(used.seconds / 60)) + ' min.') : null,
+        startNote,
+        startBar]);
+      if (problem) window.scrollTo(0, 0);
+
+      if (!Live.supported()) {
+        startBar.hidden = true;
+        startNote.appendChild(h('div', { class: 'notice' }, h('p', null, TALK_PROBLEMS.unsupported[0]), pt(TALK_PROBLEMS.unsupported[1])));
+        return;
+      }
+      // The conversation program must be there before she taps Start: on iPhone that tap unlocks its sound.
+      var state = 'loading';
+      function prepare() {
+        state = 'loading';
+        start.disabled = true;
+        label.textContent = 'Getting ready…';
+        Live.ready(function (ok) {
+          if (!alive || !body.contains(start)) return;
+          start.disabled = false;
+          clear(startNote);
+          if (ok) { state = 'ready'; label.textContent = 'Start the conversation'; return; }
+          state = 'failed';
+          label.textContent = 'Try again';
+          startNote.appendChild(h('div', { class: 'fb-box fb-bad' }, h('p', null, TALK_PROBLEMS.network[0]), pt(TALK_PROBLEMS.network[1])));
+        });
+      }
+      start.addEventListener('click', function () { if (state === 'ready') call(); else if (state === 'failed') prepare(); });
+      prepare();
+    }
+
+    /* ---------- during: the call ---------- */
+    function call() {
+      var level = talkLevel();
+      var limit = agent.seconds || 300;
+      var who = talk.who;
+      var hidden = !level.words;     // his words are blurred
+      var done = {}, hinted = {};    // goal id -> true
+      var heard = [];                // her lines, as the AI understood them (or as she typed them)
+      var typed = '';                // the last typed line, to drop an echo of it
+      var feedback = null;
+      var mode = '';                 // 'speaking': the AI speaks; 'listening': her turn
+      var connected = false, over = false, ending = false, muted = false, lineOn = false;
+      var away = false, timedOut = false, timeUp = false;
+      var startedAt = 0, lastLine = null;
+      var live = null;
+
+      clear(body);
+      SP.stop();
+      var sv = liveStage(stop);
+      sv.say('', TALK_STATUS.loading[0], TALK_STATUS.loading[1]);
+
+      var clock = h('span', { class: 'live-clock' }, clockText(limit));
+      var badge = h('div', { class: 'live-badge', hidden: true }, h('span', { class: 'live-dot', 'aria-hidden': 'true' }), h('span', null, 'LIVE'), clock);
+      var micSign = h('span', { class: 'live-mic', 'aria-hidden': 'true' }, icon('mic'));
+      var statusText = h('p', { class: 'live-status-text' });
+      var statusPt = h('p', { class: 'pt', lang: 'pt-BR' });
+      var status = h('div', { class: 'live-status', role: 'status' }, micSign,
+        h('div', { class: 'live-status-main' }, statusText, ptOn() ? statusPt : null));
+      var frame = sv.el.querySelector('.sv-frame');
+      if (frame && !frame.hidden) frame.appendChild(badge); else status.appendChild(badge);
+      function setStatus(key) {
+        statusText.textContent = TALK_STATUS[key][0];
+        statusPt.textContent = TALK_STATUS[key][1];
+        status.className = 'live-status' + (key === 'turn' ? ' turn' : '');
+      }
+
+      /* the conversation so far */
+      var log = h('div', { class: 'chat live-log' });
+      function addLine(whoKey, text) {
+        var ch = C.characters[whoKey] || { name: whoKey };
+        var textEl = h('span', { class: 'b-text' }, text);
+        log.appendChild(h('div', { class: 'bubble pop-in' + (whoKey === 'you' ? ' you' : '') }, avatarOf(whoKey),
+          h('div', { class: 'b-col' }, h('div', { class: 'b-main static' }, h('span', { class: 'b-name' }, ch.name), textEl))));
+        return textEl;
+      }
+      function youSaid(text) { heard.push(text); addLine('you', text); }
+      function spoke() { return heard.length > 0 || Object.keys(done).length > 0; }
+
+      /* tools */
+      var wordsLabel = h('span', null, '');
+      var wordsBtn = h('button', { class: 'chip-btn', type: 'button' }, icon('eye'), wordsLabel);
+      function paintWords() {
+        wordsLabel.textContent = hidden ? 'Show words' : 'Hide words';
+        wordsBtn.setAttribute('aria-pressed', hidden ? 'false' : 'true');
+        log.classList.toggle('blurred', hidden);
+        if (lineOn) sv.setHidden(hidden);
+      }
+      wordsBtn.addEventListener('click', function () { hidden = !hidden; paintWords(); });
+
+      var slowBtn = h('button', { class: 'chip-btn', type: 'button', disabled: true }, h('span', { 'aria-hidden': 'true' }, '🐢'), h('span', null, 'Slower, please'));
+      slowBtn.addEventListener('click', function () {
+        if (over || ending || !connected) return;
+        live.app('The learner pressed the "Slower, please" button. Say your last sentence again, slower and in simpler words.');
+        slowBtn.disabled = true;
+        later(function () { if (!ending) slowBtn.disabled = false; }, 5000);
+      });
+
+      var typeInput = h('input', { class: 'live-input', type: 'text', 'aria-label': 'Type your answer in English', placeholder: 'Type in English…',
+        autocomplete: 'off', autocapitalize: 'sentences', enterkeyhint: 'send', maxlength: '200', lang: 'en' });
+      var typeForm = h('form', { class: 'live-type', hidden: true }, typeInput, h('button', { class: 'btn btn-primary', type: 'submit' }, 'Send'));
+      var typeBtn = h('button', { class: 'chip-btn', type: 'button', 'aria-expanded': 'false', disabled: true }, icon('keyboard'), h('span', null, 'Type instead'));
+      typeBtn.addEventListener('click', function () {
+        typeForm.hidden = !typeForm.hidden;
+        typeBtn.setAttribute('aria-expanded', typeForm.hidden ? 'false' : 'true');
+        if (!typeForm.hidden) { try { typeInput.focus(); } catch (e) { /* ignore */ } }
+      });
+      typeForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var text = typeInput.value.trim();
+        if (!text || over || ending || !connected) return;
+        if (!live.say(text)) return;
+        typed = text;
+        typeInput.value = '';
+        youSaid(text);
+      });
+
+      var endLabel = h('span', null, 'End');
+      var endBtn = h('button', { class: 'btn danger live-end', type: 'button' }, icon('stop'), endLabel);
+      endBtn.addEventListener('click', function () {
+        if (over) return;
+        if (ending) live.end(); else askEnd('button');      // a second tap hangs up at once
+      });
+
+      /* goals, each with its hint */
+      var rows = {};
+      var goalList = h('ol', { class: 'goals' }, goals.map(function (g) {
+        var row = goalRow(g, false);
+        var box = h('div', { class: 'goal-hint', hidden: true });
+        var btn = h('button', { class: 'icon-btn sm goal-hint-btn', type: 'button', 'aria-label': 'Hint for: ' + g.t, title: 'Hint' }, icon('bulb'));
+        if (g.hints && g.hints.length) {
+          btn.addEventListener('click', function () { showHint(g, box); });
+          row.appendChild(btn);
+        }
+        row.appendChild(box);
+        rows[g.id] = { row: row, btn: btn, box: box, goal: g };
+        return row;
+      }));
+      function reach(id) {
+        var r = rows[id];
+        if (!r || done[id]) return;
+        done[id] = true;
+        r.row.classList.add('done');
+        r.row.setAttribute('aria-label', 'Reached: ' + r.goal.t);
+        r.btn.hidden = true;
+        r.box.hidden = true;
+        // no sound here: the app's own sounds must not interrupt the conversation
+        var n = milesFor(!hinted[id]);
+        earn(n);
+        floatMiles(r.row, n);
+      }
+
+      /* A hint: the model sentences of a goal, shown and played in her recorded voice. The microphone is
+         closed while they play, so the AI does not take the recording for her answer. */
+      var hintWaiting = null;
+      function playHint(texts) {
+        function go() {
+          hintWaiting = null;
+          if (over) return;
+          muted = true;
+          live.mute(true);
+          if (!ending) setStatus('hint');
+          SP.sayAll(texts.map(function (t) { return { text: t, who: 'you' }; }), {
+            onDone: function () {
+              muted = false;
+              if (over) return;
+              live.mute(false);
+              if (!ending) setStatus(mode === 'speaking' ? 'speaking' : 'turn');
+            }
+          });
+        }
+        // not over his voice: wait until he has finished his sentence (a few seconds at most)
+        if (mode === 'speaking') { hintWaiting = go; later(function () { if (hintWaiting === go) go(); }, 6000); }
+        else go();
+      }
+      function showHint(g, box) {
+        if (over || ending) return;
+        hinted[g.id] = true;
+        if (box.hidden) {
+          clear(box);
+          box.appendChild(h('p', { class: 'goal-hint-label' }, 'You can say:', ptOn() ? h('span', { class: 'pt-inline', lang: 'pt-BR' }, ' · Você pode dizer:') : null));
+          g.hints.forEach(function (hint) { box.appendChild(hintLine(hint, function () { playHint([hint.t]); })); });
+          box.hidden = false;
+        }
+        playHint(g.hints.map(function (x) { return x.t; }));
+      }
+
+      add(body, [sv.el, status,
+        h('div', { class: 'live-tools' }, wordsBtn, slowBtn, typeBtn, endBtn),
+        typeForm,
+        h('section', { class: 'mission' }, h('h2', { class: 'log-head' }, 'Your goals', hPt('Suas metas')), goalList),
+        h('section', { class: 'mission' },
+          h('h2', { class: 'log-head' }, 'The conversation so far', hPt('A conversa até agora')),
+          h('p', { class: 'muted small' }, 'Your lines show what was understood.', ptOn() ? h('span', { class: 'pt-inline', lang: 'pt-BR' }, ' · Suas falas mostram o que foi entendido.') : null),
+          log)]);
+      paintWords();
+      setStatus('loading');
+      scrollSoft(sv.el, 'start');
+
+      /* whose turn it is: the camera and the status line follow */
+      var turnTimer = null;
+      function speakingNow() {
+        sv.focus(who);
+        if (lineOn) sv.start(true);
+        if (!ending && !muted) setStatus('speaking');
+      }
+      function listeningNow() {
+        turnTimer = null;
+        if (over) return;
+        sv.rest();
+        sv.focus('you');
+        if (!ending && !muted) setStatus('turn');
+        if (hintWaiting) hintWaiting();
+      }
+
+      /* the end */
+      var endTimer = null;
+      function closeIn(ms) {
+        if (endTimer) endTimer();
+        endTimer = later(function () { if (!over) live.end(); }, ms);
+      }
+      function setEnding() {
+        ending = true;
+        setStatus('ending');
+        slowBtn.disabled = typeBtn.disabled = true;
+        typeForm.hidden = true;
+        endLabel.textContent = 'End now';
+        Object.keys(rows).forEach(function (id) { rows[id].btn.disabled = true; });
+      }
+      function askEnd(reason) {
+        if (over || ending) return;
+        if (!connected || !spoke()) { live.end(); return; }          // nothing was said yet: just hang up
+        setEnding();
+        timeUp = reason === 'time';
+        var sent = live.app(reason === 'time' ? 'end: the time is almost over. Give your feedback now.'
+          : 'end: the learner pressed the End button. Give your feedback now.');
+        if (!sent) { live.end(); return; }
+        closeIn(15000);
+      }
+
+      var ticker = null;
+      function tick() {
+        if (over || !connected) return;
+        var left = limit - (Date.now() - startedAt) / 1000;
+        clock.textContent = clockText(left);
+        badge.classList.toggle('low', left <= 30);
+        if (left <= 25 && !ending) askEnd('time');
+      }
+
+      /* his portrait moves with his voice; the microphone sign with hers */
+      var raf = 0, frameNo = 0, loudest = 0;
+      function draw() {
+        raf = requestAnimationFrame(draw);
+        if (over || (++frameNo % 3)) return;
+        // the loudness is the mean of all pitches, so speech gives small numbers: make them bigger
+        var out = 0;
+        if (mode === 'speaking' && !muted) {
+          var lv = live.level();
+          if (lv > loudest) loudest = lv;
+          // a browser that measures nothing gets a calm pulse instead
+          out = loudest > 0.01 ? lv * 5 : 0.3 + 0.3 * Math.abs(Math.sin(Date.now() / 170));
+        }
+        sv.level(Math.min(1, out));
+        var inp = mode === 'speaking' || muted || !connected ? 0 : Math.min(1, live.heard() * 5);
+        micSign.style.setProperty('--v', inp.toFixed(2));
+      }
+
+      /* the app in the background for 20 seconds, or the page closed: hang up, so that no minutes are wasted */
+      var hiddenAt = 0, hideTimer = null;
+      function leftTooLong() { if (!over) { away = true; live.end(); } }
+      function onVis() {
+        if (over) return;
+        if (document.visibilityState === 'hidden') {
+          hiddenAt = Date.now();
+          hideTimer = setTimeout(leftTooLong, 20000);
+        } else {
+          clearTimeout(hideTimer);
+          if (hiddenAt && Date.now() - hiddenAt >= 20000) leftTooLong();
+          hiddenAt = 0;
+        }
+      }
+      function onHide() { if (!over) live.end(); }
+      function tidy() {
+        clearInterval(ticker);
+        clearTimeout(hideTimer);
+        cancelAnimationFrame(raf);
+        document.removeEventListener('visibilitychange', onVis);
+        window.removeEventListener('pagehide', onHide);
+      }
+      document.addEventListener('visibilitychange', onVis);
+      window.addEventListener('pagehide', onHide);
+      cleanup.push(function () { if (!over && live) live.end(); tidy(); });
+      // a connection that never comes (the permission question may take her a while)
+      later(function () { if (!connected && !over) { timedOut = true; live.end(); } }, 45000);
+
+      live = Live.start({
+        agentId: agent.id, level: level.key, speed: level.speed,
+        onStatus: function (s) {
+          if (!alive || over) return;
+          if (s !== 'connected') { setStatus(s); sv.say('', TALK_STATUS[s][0], TALK_STATUS[s][1]); return; }
+          connected = true;
+          startedAt = Date.now();
+          badge.hidden = false;
+          slowBtn.disabled = typeBtn.disabled = false;
+          setStatus('speaking');                 // the AI always speaks first
+          if (!lineOn) sv.say('', '…', '', who);
+          ticker = setInterval(tick, 500);
+        },
+        onMode: function (m) {
+          if (!alive || over) return;
+          mode = m;
+          if (turnTimer) { turnTimer(); turnTimer = null; }
+          // a short gap in his voice is not her turn yet
+          if (m === 'speaking') speakingNow(); else turnTimer = later(listeningNow, 350);
+        },
+        onAgent: function (text) {
+          if (!alive || over) return;
+          lineOn = true;
+          lastLine = addLine(who, text);
+          sv.show({ who: who, t: text }, { hidden: hidden });
+          sv.start(true);
+          if (!ending && !muted) setStatus('speaking');
+        },
+        onAgentFix: function (text) { if (alive && !over && lastLine && text) lastLine.textContent = text; },
+        onUser: function (text) {
+          if (!alive || over) return;
+          if (typed && same(typed, text)) { typed = ''; return; }   // the echo of a typed line
+          youSaid(text);
+        },
+        onGoal: function (id) { if (alive && !over) reach(id); },
+        onFeedback: function (data) {
+          if (!alive || over) return;
+          feedback = data && typeof data === 'object' ? data : {};
+          (Array.isArray(feedback.goals) ? feedback.goals : []).forEach(function (id) { reach(String(id)); });
+          // he says goodbye and hangs up; if he doesn't, we do
+          if (!ending) setEnding();
+          closeIn(10000);
+        },
+        onEnd: function (r) {
+          over = true;
+          tidy();
+          if (endTimer) endTimer();
+          addTalkTime(r.seconds);
+          if (!alive) return;
+          SP.stop();
+          if (!spoke() && !feedback) {
+            // it never started, or she left before she said anything: back to the mission
+            var failed = timedOut || (r.why !== 'done' && r.why !== 'time');
+            mission(failed ? talkProblem(timedOut ? 'network' : r.why, r.detail) : null);
+            return;
+          }
+          // a call that ran to its limit is "time up", whatever the connection said at the end
+          report(timeUp || r.seconds >= limit - 3 ? 'time' : r.why);
+        }
+      });
+      raf = requestAnimationFrame(draw);
+
+      /* ---------- after: goals, feedback, the conversation again ---------- */
+      function report(why) {
+        var reached = goals.filter(function (g) { return done[g.id]; }).length;
+        var extra = h('div', { class: 'live-report' });
+
+        var note = null;
+        if (feedback) {
+          var fixes = realFixes(feedback.corrections, heard);
+          var praise = typeof feedback.praise === 'string' ? feedback.praise.trim() : '';
+          var fb = h('section', { class: 'live-fb' }, h('h3', null, 'Feedback', hPt('Seu feedback')));
+          if (praise) fb.appendChild(h('p', { class: 'praise', lang: 'pt-BR' }, praise));
+          fixes.forEach(function (f) {
+            var listen = null;
+            if (SP.hasTTS) {
+              listen = h('button', { class: 'chip-btn', type: 'button' }, icon('volume'), h('span', null, 'Listen'));
+              listen.addEventListener('click', function () { SP.say(f.better, 'you'); });
+            }
+            fb.appendChild(h('div', { class: 'fix' },
+              h('p', { class: 'fix-label' }, 'You said'),
+              h('p', { class: 'fix-said' }, '“' + f.said + '”'),
+              h('p', { class: 'fix-label' }, 'Better'),
+              h('p', { class: 'fix-better' }, '“' + f.better + '”'),
+              f.why ? h('p', { class: 'pt', lang: 'pt-BR' }, f.why) : null,
+              listen ? h('div', null, listen) : null));
+          });
+          if (!fixes.length) {
+            fb.appendChild(h('div', { class: 'fix none' }, h('p', null, 'No corrections this time: your sentences were clear.'),
+              pt('Nenhuma correção desta vez: suas frases estavam claras.')));
+          }
+          extra.appendChild(fb);
+        } else {
+          note = away ? ['The conversation stopped because the app was in the background.', 'A conversa parou porque o aplicativo ficou em segundo plano.']
+            : why === 'time' ? ['The time was over before the feedback.', 'O tempo acabou antes do feedback.']
+            : why === 'network' || navigator.onLine === false ? ['The connection was lost before the feedback.', 'A conexão caiu antes do feedback.']
+            : ['The conversation ended before the feedback was ready.', 'A conversa terminou antes de o feedback ficar pronto.'];
+        }
+
+        extra.appendChild(h('section', { class: 'live-goals' },
+          h('h3', null, 'Your goals', hPt('Suas metas')),
+          h('ul', { class: 'goals' }, goals.map(function (g) {
+            var row = goalRow(g, !!done[g.id]);
+            if (!done[g.id] && g.hints && g.hints.length) {
+              var box = h('div', { class: 'goal-hint' },
+                h('p', { class: 'goal-hint-label' }, 'Next time, try:', ptOn() ? h('span', { class: 'pt-inline', lang: 'pt-BR' }, ' · Da próxima vez, tente:') : null));
+              g.hints.forEach(function (hint) { box.appendChild(hintLine(hint, function () { SP.say(hint.t, 'you'); })); });
+              row.appendChild(box);
+            }
+            return row;
+          }))));
+
+        log.classList.remove('blurred');
+        extra.appendChild(h('details', { class: 'live-again' },
+          h('summary', null, h('span', null, 'Read the conversation again', hPt('Leia a conversa de novo'))), log));
+        ctx.finish(reached, goals.length, note, extra);
       }
     }
   };
