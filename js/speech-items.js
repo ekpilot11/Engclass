@@ -66,6 +66,8 @@
           if (q.opts) add(p, 'teacher', C.signs[q.opts[0]].en);
         });
         (s.signorder || []).forEach(function (id) { add(p, 'teacher', C.signs[id].en); });
+        (s.build || []).forEach(function (b) { add(p, 'you', b.say || b.t); });
+        (s.numbers || []).forEach(function (n) { add(p, n.who, n.say || n.t); });
         (s.phrases || []).forEach(function (ph) { add('common', 'you', ph.t); });
       });
     });

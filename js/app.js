@@ -59,7 +59,9 @@
     info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
     globe: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10 15 15 0 0 1 4-10z"/>',
     download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>',
-    flame: '<path d="M12 2.5c.6 3.4 5.5 5.6 5.5 11.3a5.5 5.5 0 0 1-11 0c0-2.2 1-3.9 2.3-5.3.2 1.5.9 2.5 1.9 3 .2-3.2-.4-5.8 1.3-9z" fill="currentColor" stroke="none"/>'
+    flame: '<path d="M12 2.5c.6 3.4 5.5 5.6 5.5 11.3a5.5 5.5 0 0 1-11 0c0-2.2 1-3.9 2.3-5.3.2 1.5.9 2.5 1.9 3 .2-3.2-.4-5.8 1.3-9z" fill="currentColor" stroke="none"/>',
+    heart: '<path d="M12 20.5C7.6 17.4 3 13.6 3 9.2 3 6.5 5 4.5 7.6 4.5c1.7 0 3.3.9 4.4 2.3 1.1-1.4 2.7-2.3 4.4-2.3C19 4.5 21 6.5 21 9.2c0 4.4-4.6 8.2-9 11.3z" fill="currentColor" stroke="none"/>',
+    star: '<path d="M12 3l2.7 5.6 6.1.8-4.5 4.3 1.1 6.1L12 16.9l-5.4 2.9 1.1-6.1L3.2 9.4l6.1-.8z" fill="currentColor" stroke="none"/>'
   };
   function icon(name, cls) {
     var s = h('span', { class: 'ico' + (cls ? ' ' + cls : ''), 'aria-hidden': 'true' });
@@ -78,7 +80,13 @@
   function strip(t) { return String(t).replace(/[\[\]]/g, ''); }
   function same(a, b) { return String(a).trim().toLowerCase() === String(b).trim().toLowerCase(); }
   function shake(el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
-  function later(fn, ms) { var t = setTimeout(fn, ms); cleanup.push(function () { clearTimeout(t); }); }
+  /* Run fn later, unless the page changes first. Returns a function that cancels it. */
+  function later(fn, ms) {
+    var t = setTimeout(fn, ms);
+    function cancel() { clearTimeout(t); }
+    cleanup.push(cancel);
+    return cancel;
+  }
   function scrollSoft(el, block) {
     requestAnimationFrame(function () {
       try { el.scrollIntoView({ block: block || 'nearest', behavior: 'smooth' }); } catch (e) { el.scrollIntoView(false); }
@@ -141,8 +149,12 @@
     gaps:      { title: 'Fill the gaps',    pt: 'Complete',           desc: 'Listen and complete' },
     signquiz:  { title: 'Which sign?',      pt: 'Qual placa?',        desc: 'Choose the right sign' },
     signorder: { title: 'Follow the signs', pt: 'Siga as placas',     desc: 'Put them in order' },
-    talk:      { title: 'Your turn',        pt: 'Sua vez',            desc: 'Choose what to say' }
+    talk:      { title: 'Your turn',        pt: 'Sua vez',            desc: 'Choose what to say' },
+    build:     { title: 'Build the sentence', pt: 'Monte a frase',    desc: 'Put the words in order' },
+    numbers:   { title: 'Catch the number', pt: 'Pegue o número',     desc: 'Listen for the number' },
+    test:      { title: 'Final test',       pt: 'Teste final',        desc: 'No help: earn the gold stamp' }
   };
+  /* The activities of a lesson. Finishing all of them gives the passport stamp. */
   function activitiesOf(stop) {
     var list = [];
     if (stop.vocab) list.push('words');
@@ -153,6 +165,16 @@
     if (stop.roleplay) list.push('talk');
     return list;
   }
+  /* Extra, harder activities. They don't count for the stamp; the final test gives a gold stamp. */
+  function challengesOf(stop) {
+    var list = [];
+    if (stop.build) list.push('build');
+    if (stop.numbers) list.push('numbers');
+    if (stop.test) list.push('test');
+    return list;
+  }
+  function allActs(stop) { return activitiesOf(stop).concat(challengesOf(stop)); }
+  var GOLD_PASS = 8;       // right answers (of 10) in the final test for the gold stamp
   function pkey(stop, act) { return stop.id + '-' + act; }
   function stopProgress(stop) {
     var acts = activitiesOf(stop);
@@ -170,11 +192,12 @@
     if (!raw || raw === 'home') return { view: 'home' };
     if (raw === 'phrasebook') return { view: 'phrases' };
     if (raw === 'options' || raw === 'audio') return { view: 'options' };
+    if (raw === 'review') return { view: 'review' };
     var dash = raw.indexOf('-');
     var stop = stopById(dash > 0 ? raw.slice(0, dash) : raw);
     if (!stop) return { view: 'home' };
     var act = dash > 0 ? raw.slice(dash + 1) : null;
-    if (act && activitiesOf(stop).indexOf(act) >= 0) return { view: 'activity', stop: stop, act: act };
+    if (act && allActs(stop).indexOf(act) >= 0) return { view: 'activity', stop: stop, act: act };
     return { view: 'stop', stop: stop };
   }
 
@@ -191,6 +214,7 @@
     else if (r.view === 'activity') view = viewActivity(r.stop, r.act);
     else if (r.view === 'phrases') view = viewPhrases();
     else if (r.view === 'options') view = viewOptions();
+    else if (r.view === 'review') view = viewReview();
     else view = viewHome();
     clear(app);
     app.appendChild(view);
@@ -198,6 +222,7 @@
     var title = r.view === 'activity' ? ACT[r.act].title + ' · ' + r.stop.title
       : r.view === 'stop' ? r.stop.title
       : r.view === 'phrases' ? 'Phrasebook'
+      : r.view === 'review' ? 'Daily review'
       : r.view === 'options' ? 'Settings' : '';
     document.title = title ? title + ' · Hello Dubai' : 'Hello Dubai';
     var h1 = app.querySelector('h1');
@@ -535,9 +560,9 @@
     try { return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase(); }
     catch (e) { return d.toDateString(); }
   }
-  function stampEl(stop, iso, big) {
-    return h('div', { class: 'stamp' + (big ? ' big' : '') },
-      h('span', { class: 'stamp-top' }, stop.journey.id === 'flight' ? 'In flight' : 'DXB · Dubai'),
+  function stampEl(stop, iso, big, gold) {
+    return h('div', { class: 'stamp' + (big ? ' big' : '') + (gold ? ' gold' : '') },
+      h('span', { class: 'stamp-top' }, gold ? 'Gold · Final test' : stop.journey.id === 'flight' ? 'In flight' : 'DXB · Dubai'),
       h('span', { class: 'stamp-icon', 'aria-hidden': 'true' }, sceneThumb(stop)),
       h('span', { class: 'stamp-name' }, stop.title),
       h('span', { class: 'stamp-date' }, stampDate(iso)));
@@ -629,9 +654,22 @@
           h('span', { class: 'fc-dot' }, d.goal ? icon('check') : null),
           h('span', { class: 'fc-letter' }, d.letter));
       })),
+      reviewLink(),
       h('p', { class: 'fc-level' },
         h('span', { class: 'fc-tier tier-' + v.level.id }, v.level.name),
         h('span', null, v.total + ' miles' + (v.level.next ? ' · ' + v.level.toNext + ' to ' + v.level.next.name : ''))));
+  }
+  /* The way into the daily review, once there is something to review. */
+  function reviewLink() {
+    if (!Game.seen().length) return null;
+    var n = reviewDue().length;
+    return h('a', { class: 'fc-review' + (n ? ' due' : ''), href: '#review' },
+      icon('retry'),
+      h('span', { class: 'fc-review-main' },
+        h('strong', null, 'Daily review'),
+        h('span', null, n ? n + (n === 1 ? ' question is waiting' : ' questions are waiting') : 'All done for today'),
+        ptOn() ? h('span', { class: 'fc-pt', lang: 'pt-BR' }, n ? 'Revisão diária: ' + n + (n === 1 ? ' pergunta esperando' : ' perguntas esperando') : 'Revisão diária: tudo em dia') : null),
+      icon('forward'));
   }
 
   function board(j) {
@@ -666,12 +704,13 @@
       h('div', { class: 'sec-head' }, h('h2', null, 'My passport stamps'), h('span', { class: 'count' }, got + ' of ' + stops.length)),
       h('div', { class: 'stamp-row' }, stops.map(function (s) {
         var has = !!store.stamps[s.id];
-        return h('a', { class: 'mini-stamp' + (has ? ' got' : ''), href: '#' + s.id, title: s.title,
-          'aria-label': s.title + (has ? ': stamp collected' : ': no stamp yet') },
+        var gold = !!Game.gold(s.id);
+        return h('a', { class: 'mini-stamp' + (has ? ' got' : '') + (gold ? ' gold' : ''), href: '#' + s.id, title: s.title,
+          'aria-label': s.title + (gold ? ': gold stamp' : has ? ': stamp collected' : ': no stamp yet') },
           h('span', { 'aria-hidden': 'true' }, sceneThumb(s)));
       })),
-      h('p', { class: 'muted small' }, 'Finish every activity at a stop to get its stamp.'),
-      pt('Termine todas as atividades de uma etapa para ganhar o carimbo.', 'p', 'small'));
+      h('p', { class: 'muted small' }, 'Finish every activity at a stop to get its stamp. Pass a final test to turn it gold.'),
+      pt('Termine todas as atividades de uma etapa para ganhar o carimbo. Passe no teste final para ele virar ouro.', 'p', 'small'));
   }
 
   /* ================================================================ stop page */
@@ -717,15 +756,36 @@
           icon('forward', 'ar-go')));
       }))));
 
+    var extras = challengesOf(stop);
+    if (extras.length) {
+      main.appendChild(h('section', { class: 'acts-sec' },
+        h('h2', null, 'Challenges', ptOn() ? h('span', { class: 'h-pt', lang: 'pt-BR' }, ' · Desafios') : null),
+        h('p', { class: 'muted' }, 'Harder practice for when you know the lesson. The final test gives a gold stamp.'),
+        pt('Prática mais difícil para quando você já conhece a lição. O teste final dá um carimbo de ouro.'),
+        h('ol', { class: 'acts' }, extras.map(function (a) {
+          var p = store.progress[pkey(stop, a)];
+          var gold = a === 'test' && !!Game.gold(stop.id);
+          return h('li', null, h('a', { class: 'act-row extra' + (p ? ' done' : '') + (gold ? ' gold' : ''), href: '#' + pkey(stop, a) },
+            h('span', { class: 'ar-num' }, gold ? icon('star') : p ? icon('check') : icon(a === 'test' ? 'star' : 'flame')),
+            h('span', { class: 'ar-main' }, h('span', { class: 'ar-title' }, ACT[a].title),
+              h('span', { class: 'ar-desc' }, ptOn() ? ACT[a].pt + ' · ' + ACT[a].desc : ACT[a].desc)),
+            h('span', { class: 'ar-score' }, p ? (p.total ? p.best + '/' + p.total : 'Done') : ''),
+            icon('forward', 'ar-go')));
+        }))));
+    }
+
     if (stop.tips && stop.tips.length) {
       main.appendChild(h('section', { class: 'tips' },
         h('h2', null, icon('info'), 'Good to know', ptOn() ? h('span', { class: 'h-pt', lang: 'pt-BR' }, ' · Bom saber') : null),
         h('ul', null, stop.tips.map(function (t) { t = tr(t); return h('li', null, h('span', null, t.t), pt(t.pt, 'span', 'block')); }))));
     }
 
-    if (store.stamps[stop.id]) {
-      main.appendChild(h('section', { class: 'stop-stamp' }, stampEl(stop, store.stamps[stop.id]),
-        h('p', { class: 'muted' }, 'You collected this stamp. You can practise again any time.')));
+    if (store.stamps[stop.id] || Game.gold(stop.id)) {
+      main.appendChild(h('section', { class: 'stop-stamp' },
+        store.stamps[stop.id] ? stampEl(stop, store.stamps[stop.id]) : null,
+        Game.gold(stop.id) ? stampEl(stop, Game.gold(stop.id), false, true) : null,
+        h('p', { class: 'muted' }, Game.gold(stop.id) ? 'You passed the final test of this lesson. You can practise again any time.'
+          : 'You collected this stamp. You can practise again any time.')));
     }
 
     var prev = stops[flat - 1], nxt = stops[flat + 1];
@@ -748,7 +808,7 @@
     var acts = activitiesOf(stop);
     var i = acts.indexOf(act);
     main.appendChild(h('div', { class: 'act-head' },
-      h('p', { class: 'kicker' }, stop.title + ' · ' + (i + 1) + ' of ' + acts.length),
+      h('p', { class: 'kicker' }, stop.title + ' · ' + (i >= 0 ? (i + 1) + ' of ' + acts.length : 'Challenge')),
       h('h1', null, ACT[act].title),
       pt(ACT[act].pt, 'p', 'act-pt')));
     main.appendChild(audioNotice());
@@ -756,7 +816,8 @@
     main.appendChild(body);
     var ctx = {
       stop: stop, act: act, body: body,
-      finish: function (score, total) { showResult(ctx, score, total); }
+      // note: optional [english, portuguese] line for the result page
+      finish: function (score, total, note) { showResult(ctx, score, total, note); }
     };
     session = { earned: 0, goalReached: false, levelUp: null };
     RUN[act](ctx);
@@ -764,7 +825,7 @@
     return root;
   }
 
-  function showResult(ctx, score, total) {
+  function showResult(ctx, score, total, note) {
     SP.stop();
     var key = pkey(ctx.stop, ctx.act);
     var prev = store.progress[key];
@@ -776,14 +837,20 @@
       store.stamps[ctx.stop.id] = new Date().toISOString();
       newStamp = true;
     }
+    // the final test: enough right answers turn the stamp gold (once)
+    var isTest = ctx.act === 'test';
+    var passed = isTest && score >= GOLD_PASS;
+    var newGold = passed && Game.setGold(ctx.stop.id);
+    if (newGold) earn(GameKit.MILES.gold);
     earn(GameKit.MILES.finish);
     var streak = Game.touch();
     save();
 
     var ratio = total ? score / total : 1;
-    var title = ratio === 1 ? ['Excellent!', 'Excelente!'] : ratio >= 0.7 ? ['Well done!', 'Muito bem!']
+    var title = isTest ? (passed ? ['Test passed!', 'Teste aprovado!'] : ['Not yet. Try again!', 'Ainda não. Tente de novo!'])
+      : ratio === 1 ? ['Excellent!', 'Excelente!'] : ratio >= 0.7 ? ['Well done!', 'Muito bem!']
       : ratio >= 0.4 ? ['Good try!', 'Boa tentativa!'] : ['Keep practising!', 'Continue praticando!'];
-    var acts = activitiesOf(ctx.stop);
+    var acts = allActs(ctx.stop);
     var nextAct = acts[acts.indexOf(ctx.act) + 1];
     var nextStop = stops[stops.indexOf(ctx.stop) + 1];
     var next = nextAct ? { href: '#' + pkey(ctx.stop, nextAct), label: 'Next: ' + ACT[nextAct].title }
@@ -793,22 +860,28 @@
     clear(ctx.body);
     var retry = h('button', { class: 'btn', type: 'button' }, icon('retry'), 'Try again');
     retry.addEventListener('click', render);
+    var good = isTest ? passed : ratio >= 0.7;
     ctx.body.appendChild(h('section', { class: 'result pop-in', 'aria-live': 'polite' },
-      h('div', { class: 'result-badge' + (ratio >= 0.7 ? ' good' : ' ok') }, icon('check')),
+      h('div', { class: 'result-badge' + (good ? ' good' : ' ok') }, icon(isTest ? (passed ? 'star' : 'retry') : 'check')),
       h('h2', null, title[0]),
       pt(title[1]),
-      total ? h('p', { class: 'result-score' }, h('strong', null, score + ' of ' + total), ' correct the first time')
+      total ? h('p', { class: 'result-score' }, h('strong', null, score + ' of ' + total), isTest ? ' correct' : ' correct the first time')
             : h('p', { class: 'result-score' }, 'Activity complete'),
-      total && ratio < 1 ? h('p', { class: 'muted' }, 'Try again to improve. We keep your best score.') : null,
+      note ? h('div', { class: 'result-note' }, h('p', null, note[0]), pt(note[1])) : null,
+      isTest && !passed ? h('div', { class: 'result-note' },
+        h('p', null, 'You need ' + GOLD_PASS + ' right answers for the gold stamp.'),
+        pt('Você precisa de ' + GOLD_PASS + ' respostas certas para o carimbo de ouro.')) : null,
+      !isTest && total && ratio < 1 ? h('p', { class: 'muted' }, 'Try again to improve. We keep your best score.') : null,
       milesEarned(streak),
       h('div', { class: 'result-actions' },
         h('a', { class: 'btn btn-primary', href: next.href }, next.label, icon('forward')),
         retry)));
     window.scrollTo(0, 0);
-    if (newStamp) later(function () { showStamp(ctx.stop); }, 400);
+    if (newGold) later(function () { showStamp(ctx.stop, true); }, 400);
+    else if (newStamp) later(function () { showStamp(ctx.stop); }, 400);
     else {
       GameKit.sfx('done');
-      if (session.goalReached || session.levelUp) GameKit.confetti();
+      if (session.goalReached || session.levelUp || (isTest && passed)) GameKit.confetti();
     }
   }
 
@@ -826,17 +899,18 @@
       lines.map(function (l) { return h('p', { class: 'earned-news' }, h('strong', null, l[0]), ptOn() ? h('span', { class: 'pt-inline', lang: 'pt-BR' }, ' · ' + l[1]) : null); }));
   }
 
-  function showStamp(stop) {
+  function showStamp(stop, gold) {
     var btn = h('button', { class: 'btn btn-primary', type: 'button' }, 'Continue');
     btn.addEventListener('click', closeOverlay);
-    openOverlay(h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'New passport stamp' },
-      stampEl(stop, store.stamps[stop.id], true),
-      h('h2', null, 'New passport stamp!'),
-      pt('Novo carimbo no passaporte!'),
-      h('p', null, 'You finished every activity in “' + stop.title + '”.'),
+    openOverlay(h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': gold ? 'Gold stamp' : 'New passport stamp' },
+      gold ? stampEl(stop, Game.gold(stop.id), true, true) : stampEl(stop, store.stamps[stop.id], true),
+      h('h2', null, gold ? 'Gold stamp!' : 'New passport stamp!'),
+      pt(gold ? 'Carimbo de ouro!' : 'Novo carimbo no passaporte!'),
+      h('p', null, gold ? 'You passed the final test of “' + stop.title + '” without help.' : 'You finished every activity in “' + stop.title + '”.'),
+      gold ? pt('Você passou no teste final de “' + stop.pt + '” sem ajuda.') : null,
       btn));
     GameKit.sfx('stamp');
-    GameKit.confetti();
+    GameKit.confetti(gold ? 70 : 40);
   }
 
   function progressBar(i, n) {
@@ -933,6 +1007,7 @@
               solved = true;
               if (!tried) score++;
               mark(true, !tried, tile);
+              Game.note(reviewId.word(ctx.stop, target), !tried);
               tile.classList.add('is-right');
               grid.querySelectorAll('.pic').forEach(function (b) { b.disabled = true; });
               word.hidden = false; showWord.hidden = true;
@@ -1400,6 +1475,7 @@
             solved = true;
             if (!tried) firstTry++;
             mark(true, !tried, btn);
+            if (!t.ask) Game.note(reviewId.reply(ctx.stop, turns.indexOf(t)), !tried);
             btn.classList.add('is-right');
             grid.querySelectorAll('.option').forEach(function (x) { x.disabled = true; });
             clear(fb);
@@ -1613,6 +1689,581 @@
     body.appendChild(pool);
     body.appendChild(fb);
   };
+
+  /* ================================================================ challenges: the question parts */
+
+  /* Names of the things the daily review remembers (Game.note). */
+  var reviewId = {
+    word: function (stop, v) { return 'w:' + stop.id + ':' + Keys.slug(v.w); },
+    reply: function (stop, index) { return 'r:' + stop.id + ':' + index; },
+    number: function (stop, index) { return 'n:' + stop.id + ':' + index; },
+    build: function (stop, index) { return 'b:' + stop.id + ':' + index; }
+  };
+  /* The lesson content behind such a name. null when the lesson has changed since. */
+  function reviewItem(id) {
+    var p = String(id).split(':');
+    var stop = stopById(p[1]);
+    if (!stop) return null;
+    var n = +p[2];
+    if (p[0] === 'w') {
+      var v = (stop.vocab || []).filter(function (x) { return Keys.slug(x.w) === p[2]; })[0];
+      return v ? { type: 'w', stop: stop, word: v } : null;
+    }
+    if (p[0] === 'r') return stop.roleplay && stop.roleplay[n] && stop.roleplay[n].choose ? { type: 'r', stop: stop, index: n } : null;
+    if (p[0] === 'n') return stop.numbers && stop.numbers[n] ? { type: 'n', stop: stop, item: stop.numbers[n] } : null;
+    if (p[0] === 'b') return stop.build && stop.build[n] ? { type: 'b', stop: stop, item: stop.build[n] } : null;
+    return null;
+  }
+  function reviewDue() {
+    return Game.due().filter(function (id) {
+      if (reviewItem(id)) return true;
+      Game.drop(id);   // the lesson changed: forget it
+      return false;
+    });
+  }
+
+  /* Timers of the question on screen (its sound starting by itself, for example).
+     They must not fire once she has moved on to the next question. */
+  var questionTimers = [];
+  function soon(fn, ms) { questionTimers.push(later(fn, ms)); }
+  function dropTimers() {
+    questionTimers.forEach(function (cancel) { cancel(); });
+    questionTimers = [];
+  }
+
+  /* Shows questions one after the other. draw(i, host, done) draws question i and calls done(right at the first try). */
+  function runQuestions(body, count, draw, finish) {
+    var i = 0, score = 0;
+    step();
+    function step() {
+      dropTimers();
+      if (i >= count) { finish(score, count); return; }
+      clear(body);
+      body.appendChild(progressBar(i, count));
+      var host = h('div', { class: 'q-host' });
+      body.appendChild(host);
+      window.scrollTo(0, 0);
+      draw(i, host, function (first) { if (first) score++; i++; step(); });
+    }
+  }
+
+  /*
+   * The question parts below all work the same way: ask...(host, ..., o, done)
+   *   o.strict    one try only (the final test); otherwise she tries until it is right
+   *   o.pt        Portuguese may be shown (pt() still hides it when the help is switched off)
+   *   o.plays     how often a line may be heard (0 or nothing = no limit)
+   *   o.last      the button says "See my result"
+   *   o.onAnswer  called with true/false as soon as the answer is known (the test counts hearts there)
+   *   done({ ok, first })   ok: answered right; first: right at the first try
+   */
+
+  /* A button to hear a line, with a count of how often it can still be heard.
+     Normally a big round button; compact: a small one that fits next to the question. */
+  function listenBox(play, plays, compact) {
+    var left = plays || 0;
+    var label = h('span', null, 'Listen again');
+    var btn = compact ? h('button', { class: 'chip-btn', type: 'button' }, icon('volume'), label)
+      : h('button', { class: 'big-listen', type: 'button', 'aria-label': 'Listen' }, icon('volume'));
+    var note = h('p', { class: 'muted small', hidden: !plays || !!compact }, '');
+    function paint() {
+      if (!plays) return;
+      label.textContent = left > 0 ? 'Listen again (' + left + ' left)' : 'No more listening';
+      note.textContent = left > 1 ? 'You can listen ' + left + ' more times' : left === 1 ? 'You can listen 1 more time' : 'No more listening for this one';
+      btn.disabled = left <= 0;
+    }
+    function go() {
+      if (plays) { if (left <= 0) return; left--; paint(); }
+      play();
+    }
+    btn.addEventListener('click', go);
+    paint();
+    return { el: compact ? btn : h('div', { class: 'listen-box' }, btn, note), play: go };
+  }
+  function nextButton() {
+    return h('button', { class: 'btn btn-primary', type: 'button', hidden: true }, 'Next', icon('forward'));
+  }
+  /* The answer is known: tell the test, then show the button that goes on. */
+  function revealNext(next, o, ok, go) {
+    if (o.onAnswer) o.onAnswer(ok);
+    next.firstChild.textContent = (o.isLast ? o.isLast() : o.last) ? 'See my result' : 'Next';
+    next.hidden = false;
+    next.addEventListener('click', function () { dropTimers(); SP.stop(); go(); });
+    scrollSoft(next);
+  }
+  function whoLine(who) {
+    var ch = C.characters[who] || { name: who };
+    return h('div', { class: 'who-line' }, avatarOf(who), h('span', { class: 'b-name' }, ch.name));
+  }
+
+  /* Hear a word, tap its picture. */
+  function askPicture(host, stop, target, o, done) {
+    var tried = false, over = false;
+    var others = shuffle(stop.vocab.filter(function (v) { return v !== target; })).slice(0, 3);
+    var listen = listenBox(function () { SP.say(target.w, 'teacher'); }, o.plays);
+    var next = nextButton();
+    var grid = h('div', { class: 'pic-grid' });
+    var tiles = [];
+    function finish(ok) {
+      over = true;
+      tiles.forEach(function (x) {
+        x.tile.disabled = true;
+        x.label.textContent = x.v.w;
+        if (x.v === target) x.tile.classList.add('is-right');
+      });
+      revealNext(next, o, ok, function () { done({ ok: ok, first: ok && !tried }); });
+    }
+    shuffle([target].concat(others)).forEach(function (v) {
+      var label = h('span', { class: 'pic-label' }, '');
+      var tile = h('button', { class: 'pic', type: 'button', 'aria-label': 'Picture ' + v.w },
+        pic(Keys.vocab(stop, v), '', h('span', { class: 'pic-emoji', 'aria-hidden': 'true' }, v.e), 'pic-img'), label);
+      tiles.push({ tile: tile, label: label, v: v });
+      tile.addEventListener('click', function () {
+        if (over) return;
+        if (v === target) { mark(true, !tried, tile); finish(true); return; }
+        mark(false);
+        tried = true;
+        label.textContent = v.w;
+        tile.classList.add('is-wrong');
+        tile.disabled = true;
+        shake(tile);
+        if (o.strict) finish(false);
+      });
+      grid.appendChild(tile);
+    });
+    add(host, [
+      h('div', { class: 'quiz-prompt' },
+        h('p', { class: 'quiz-q' }, 'Listen. Which picture is it?'),
+        o.pt ? pt('Ouça. Qual é a figura?') : null,
+        listen.el),
+      grid,
+      h('div', { class: 'act-foot' }, next)]);
+    soon(listen.play, 350);
+  }
+
+  /* Hear a line with a number in it, tap the number. */
+  function askNumber(host, item, o, done) {
+    var spoken = item.say || item.t;
+    var correct = item.a[0];
+    var tried = false, over = false;
+    var textEl = h('p', { class: 'line-text blurred', 'aria-hidden': 'true' }, item.t);
+    var ptEl = o.pt ? pt(item.pt) : null;
+    if (ptEl) ptEl.hidden = true;
+    var listen = listenBox(function () { SP.say(spoken, item.who); }, o.plays);
+    var fb = h('div', { class: 'fb', 'aria-live': 'polite' });
+    var next = nextButton();
+    var grid = h('div', { class: 'num-options' });
+    function finish(ok) {
+      over = true;
+      grid.querySelectorAll('button').forEach(function (b) {
+        b.disabled = true;
+        if (b.textContent === correct) b.classList.add('is-right');
+      });
+      textEl.classList.remove('blurred');
+      textEl.removeAttribute('aria-hidden');
+      if (ptEl) ptEl.hidden = false;
+      revealNext(next, o, ok, function () { done({ ok: ok, first: ok && !tried }); });
+    }
+    shuffle(item.a).forEach(function (a) {
+      var b = h('button', { class: 'num-opt', type: 'button' }, a);
+      b.addEventListener('click', function () {
+        if (over) return;
+        if (a === correct) { mark(true, !tried, b); clear(fb); finish(true); return; }
+        mark(false);
+        tried = true;
+        b.classList.add('is-wrong');
+        b.disabled = true;
+        shake(b);
+        if (o.strict) { finish(false); return; }
+        clear(fb);
+        fb.appendChild(feedback('bad', 'Not this one.', 'Listen again.', 'Ouça de novo.'));
+      });
+      grid.appendChild(b);
+    });
+    add(host, [
+      h('div', { class: 'quiz-prompt' }, whoLine(item.who), listen.el, textEl, ptEl),
+      h('div', { class: 'stage-head' }, h('div', null, h('p', { class: 'stage-q' }, item.ask), o.pt ? pt(item.askPt) : null)),
+      grid, fb,
+      h('div', { class: 'act-foot' }, next)]);
+    soon(listen.play, 350);
+  }
+
+  /* Hear what the staff say, choose the reply. With o.sv the line plays in the animated scene. */
+  function askReply(host, stop, index, o, done) {
+    var turns = stop.roleplay;
+    var t = turns[index];
+    var line = null;
+    for (var k = index - 1; k >= 0 && !turns[k].choose; k--) {
+      if (turns[k].who) { line = turns[k]; break; }
+    }
+    var correct = null;
+    t.choose.forEach(function (c) { if (c.ok && !correct) correct = c; });
+    if (!correct) correct = t.choose[0];
+    var fx = line ? Items.fxOf(line) : '';
+    var sv = o.sv || null;
+    var tried = false, over = false;
+    var textEl = line ? h('p', { class: 'line-text blurred', 'aria-hidden': 'true' }, strip(line.t)) : null;
+    var ptEl = line && o.pt ? pt(line.pt) : null;
+    if (ptEl) ptEl.hidden = true;
+    function playLine() {
+      if (!line) return;
+      var spoken = line.say || line.t;
+      if (sv) sv.show(line, { hidden: !over, times: SP.timesFor(spoken, line.who, fx) });
+      SP.say(spoken, line.who, {
+        fx: fx,
+        onstart: sv ? sv.start : null,
+        ontime: sv ? sv.tick : null,
+        onend: function () {
+          if (!sv) return;
+          sv.rest();
+          if (!over && sv.has('you')) sv.focus('you');   // her turn: the camera turns to her
+        }
+      });
+    }
+    var listen = listenBox(playLine, o.plays, !!sv);
+    var fb = h('div', { class: 'fb', 'aria-live': 'polite' });
+    var next = nextButton();
+    var grid = h('div', { class: 'options' });
+    function finish(ok, chosen) {
+      over = true;
+      grid.querySelectorAll('.option').forEach(function (b) {
+        b.disabled = true;
+        if (b.textContent === correct.t) b.classList.add('is-right');
+      });
+      if (textEl) { textEl.classList.remove('blurred'); textEl.removeAttribute('aria-hidden'); }
+      if (ptEl) ptEl.hidden = false;
+      if (sv) sv.setHidden(false);
+      clear(fb);
+      if (!ok && chosen && chosen.why) fb.appendChild(feedback('bad', 'Not quite.', chosen.why, chosen.whyPt));
+      revealNext(next, o, ok, function () { done({ ok: ok, first: ok && !tried }); });
+    }
+    shuffle(t.choose).forEach(function (c) {
+      var b = h('button', { class: 'option', type: 'button' }, c.t);
+      b.addEventListener('click', function () {
+        if (over) return;
+        if (c === correct) { mark(true, !tried, b); finish(true); return; }
+        mark(false);
+        tried = true;
+        b.classList.add('is-wrong');
+        b.disabled = true;
+        shake(b);
+        if (o.strict) { finish(false, c); return; }
+        clear(fb);
+        fb.appendChild(feedback('bad', 'Not quite.',
+          c.why || t.hint || 'Listen again and try another answer.',
+          c.why ? c.whyPt : t.hint ? t.hintPt : 'Ouça de novo e tente outra resposta.'));
+      });
+      grid.appendChild(b);
+    });
+    add(host, [
+      sv ? sv.el : h('div', { class: 'quiz-prompt' }, line ? whoLine(line.who) : null, listen.el, textEl, ptEl),
+      h('div', { class: 'stage-head' },
+        h('div', null, h('p', { class: 'stage-q' }, 'What do you say?'), o.pt ? pt('O que você diz?') : null),
+        sv ? listen.el : null),
+      grid, fb,
+      h('div', { class: 'act-foot' }, next)]);
+    if (sv) scrollSoft(sv.el, 'start');   // the scene and the answers fit on the screen together
+    soon(listen.play, 400);
+  }
+
+  var KEEP_CAPITAL = /^(I|I[’'](m|ll|d|ve)|Dubai|English|Portuguese|Brazil|Brazilian|Emirates|OK)$/;
+  /* "This is my mother. She doesn’t speak English." -> this, is, my, mother, she, doesn’t, speak, English */
+  function chipWords(text) {
+    var start = true;
+    return strip(text).split(/\s+/).filter(Boolean).map(function (w) {
+      var bare = w.replace(/^[“"(]+/, '').replace(/[.,!?;:”")]+$/, '');
+      var chip = start && !KEEP_CAPITAL.test(bare) ? bare.charAt(0).toLowerCase() + bare.slice(1) : bare;
+      start = /[.!?]$/.test(w);
+      return chip;
+    });
+  }
+  function sameChip(a, b) {
+    return String(a).toLowerCase().replace(/[’']/g, "'") === String(b).toLowerCase().replace(/[’']/g, "'");
+  }
+
+  /* Put the words of one of her own sentences in order. item.trap words don't belong in it.
+     o.mode: 'listen' (she hears it) or 'pt' (from the Portuguese only, when the help is on). */
+  function askBuild(host, item, o, done) {
+    var spoken = item.say || item.t;
+    var target = chipWords(item.t);
+    var traps = item.trap || [];
+    var fromPt = o.mode === 'pt' && !o.strict && !!item.pt && ptOn();
+    var checks = 0, tried = false, over = false;
+    var placed = [];
+    var line = h('div', { class: 'build-line' });
+    var hint = h('span', { class: 'build-hint' }, 'Tap the words in the right order');
+    line.appendChild(hint);
+    var bank = h('div', { class: 'build-bank' });
+    var chips = shuffle(target.concat(traps)).map(function (w) {
+      var c = { w: w, on: false, el: h('button', { class: 'chip', type: 'button' }, w) };
+      c.el.addEventListener('click', function () { if (!over) move(c); });
+      bank.appendChild(c.el);
+      return c;
+    });
+    var fb = h('div', { class: 'fb', 'aria-live': 'polite' });
+    var checkBtn = h('button', { class: 'btn btn-primary', type: 'button', disabled: true }, icon('check'), 'Check');
+    var showBtn = h('button', { class: 'btn', type: 'button', hidden: true }, 'Show the answer');
+    var after = h('div', { class: 'sv-tools' });
+    var sayHost = h('div', { class: 'say-host', 'aria-live': 'polite' });
+    var next = nextButton();
+    var listen = fromPt ? null : listenBox(function () { SP.say(spoken, 'you'); }, o.plays);
+
+    function inPlace(c, i) { return i < target.length && sameChip(c.w, target[i]); }
+    function move(c) {
+      if (c.on) { placed.splice(placed.indexOf(c), 1); bank.appendChild(c.el); }
+      else { placed.push(c); line.appendChild(c.el); }
+      c.on = !c.on;
+      chips.forEach(function (x) { x.el.classList.remove('is-right', 'is-wrong'); });
+      line.classList.remove('is-wrong');
+      clear(fb);
+      hint.hidden = placed.length > 0;
+      checkBtn.disabled = placed.length === 0;
+    }
+    function right() {
+      return placed.length === target.length && placed.every(inPlace);
+    }
+    function finish(ok) {
+      over = true;
+      clear(line);
+      line.className = 'build-line ' + (ok ? 'is-right' : 'is-shown');
+      add(line, [h('p', { class: 'build-answer' }, strip(item.t)), pt(item.pt)]);
+      bank.hidden = true;
+      checkBtn.hidden = true;
+      showBtn.hidden = true;
+      clear(fb);
+      if (!ok && item.why) fb.appendChild(feedback('bad', 'Remember:', item.why, item.whyPt));
+      var again = h('button', { class: 'chip-btn', type: 'button' }, icon('volume'), h('span', null, 'Listen'));
+      again.addEventListener('click', function () { SP.say(spoken, 'you'); });
+      add(after, [again, sayItButton(strip(item.t), sayHost)]);
+      soon(function () { SP.say(spoken, 'you'); }, ok ? AFTER_CHIME : 600);
+      revealNext(next, o, ok, function () { done({ ok: ok, first: ok && !tried }); });
+    }
+    checkBtn.addEventListener('click', function () {
+      if (over) return;
+      checks++;
+      if (right()) { mark(true, !tried, checkBtn); finish(true); return; }
+      mark(false);
+      tried = true;
+      if (o.strict) { finish(false); return; }
+      placed.forEach(function (c, i) { c.el.classList.add(inPlace(c, i) ? 'is-right' : 'is-wrong'); });
+      line.classList.add('is-wrong');
+      shake(line);
+      clear(fb);
+      var usedTrap = placed.some(function (c) { return traps.some(function (t) { return sameChip(t, c.w); }); });
+      var count = placed.length !== target.length;
+      fb.appendChild(usedTrap && item.why ? feedback('bad', 'Not quite.', item.why, item.whyPt)
+        : feedback('bad', 'Not quite.',
+          count ? 'The sentence has ' + target.length + ' words. Tap a word to take it out.' : 'The red words are in the wrong place. Tap a word to take it out.',
+          count ? 'A frase tem ' + target.length + ' palavras. Toque numa palavra para tirá-la.' : 'As palavras em vermelho estão no lugar errado. Toque numa palavra para tirá-la.'));
+      if (checks >= 2) showBtn.hidden = false;
+    });
+    showBtn.addEventListener('click', function () {
+      if (over) return;
+      tried = true;
+      finish(false);
+    });
+
+    add(host, [
+      fromPt
+        ? h('div', { class: 'quiz-prompt' },
+            h('p', { class: 'quiz-q' }, 'Say it in English'),
+            h('p', { class: 'build-pt', lang: 'pt-BR' }, item.pt))
+        : h('div', { class: 'quiz-prompt' },
+            h('p', { class: 'quiz-q' }, 'Listen and build the sentence'),
+            o.pt && !o.strict ? pt('Ouça e monte a frase') : null,
+            listen.el,
+            o.pt && !o.strict ? pt(item.pt) : null),
+      line, bank, fb,
+      h('div', { class: 'bank-actions' }, checkBtn, showBtn),
+      after, sayHost,
+      h('div', { class: 'act-foot' }, next)]);
+    if (listen) soon(listen.play, 350);
+  }
+
+  /* ---------------------------------------------------------------- Build the sentence */
+  RUN.build = function (ctx) {
+    var items = ctx.stop.build;
+    var rounds = shuffle(items).map(function (it) { return { item: it, mode: 'listen' }; });
+    // then some of them again, from the Portuguese only
+    if (ptOn()) shuffle(items).slice(0, 4).forEach(function (it) { rounds.push({ item: it, mode: 'pt' }); });
+    runQuestions(ctx.body, rounds.length, function (i, host, done) {
+      var r = rounds[i];
+      askBuild(host, r.item, { mode: r.mode, pt: true, last: i === rounds.length - 1 }, function (res) {
+        Game.note(reviewId.build(ctx.stop, items.indexOf(r.item)), res.first);
+        done(res.first);
+      });
+    }, ctx.finish);
+  };
+
+  /* ---------------------------------------------------------------- Catch the number */
+  RUN.numbers = function (ctx) {
+    var all = ctx.stop.numbers;
+    var items = shuffle(all);
+    runQuestions(ctx.body, items.length, function (i, host, done) {
+      askNumber(host, items[i], { pt: true, last: i === items.length - 1 }, function (res) {
+        Game.note(reviewId.number(ctx.stop, all.indexOf(items[i])), res.first);
+        done(res.first);
+      });
+    }, ctx.finish);
+  };
+
+  /* ---------------------------------------------------------------- Final test */
+  RUN.test = function (ctx) {
+    var stop = ctx.stop;
+    var body = ctx.body;
+    var TOTAL = 10, HEARTS = 3, PLAYS = 2;
+
+    // A mix of everything in the lesson: words, replies, numbers and sentences.
+    function pick() {
+      var pools = {
+        w: shuffle(stop.vocab || []).map(function (v) { return { type: 'w', word: v, id: reviewId.word(stop, v) }; }),
+        r: shuffle((stop.roleplay || []).map(function (t, i) { return t.choose && !t.ask ? i : -1; }).filter(function (i) { return i >= 0; }))
+          .map(function (i) { return { type: 'r', index: i, id: reviewId.reply(stop, i) }; }),
+        n: shuffle(stop.numbers || []).map(function (n) { return { type: 'n', item: n, id: reviewId.number(stop, stop.numbers.indexOf(n)) }; }),
+        b: shuffle(stop.build || []).map(function (b) { return { type: 'b', item: b, id: reviewId.build(stop, stop.build.indexOf(b)) }; })
+      };
+      var want = { w: 2, r: 4, n: 2, b: 2 };
+      var out = [];
+      Object.keys(want).forEach(function (k) { out = out.concat(pools[k].splice(0, want[k])); });
+      var rest = shuffle(pools.r.concat(pools.w, pools.n, pools.b));   // a lesson with less of one kind
+      while (out.length < TOTAL && rest.length) out.push(rest.shift());
+      return shuffle(out);
+    }
+
+    var start = h('button', { class: 'btn btn-primary', type: 'button' }, icon('play'), 'Start the test');
+    start.addEventListener('click', run);
+    add(body, [
+      instr('Show what you can do without help. ' + GOLD_PASS + ' right answers of ' + TOTAL + ' turn your stamp gold.',
+        'Mostre o que você já sabe fazer sem ajuda. ' + GOLD_PASS + ' respostas certas de ' + TOTAL + ' deixam o seu carimbo dourado.'),
+      h('ul', { class: 'rules' },
+        h('li', null, icon('eyeoff'), h('span', null, 'No Portuguese, and the words are hidden.', pt('Sem português, e as palavras ficam escondidas.', 'span', 'block'))),
+        h('li', null, icon('volume'), h('span', null, 'You can listen to each line twice.', pt('Você pode ouvir cada frase duas vezes.', 'span', 'block'))),
+        h('li', { class: 'rule-heart' }, icon('heart'), h('span', null, 'You have ' + HEARTS + ' hearts. A wrong answer costs one.', pt('Você tem ' + HEARTS + ' corações. Cada erro custa um.', 'span', 'block')))),
+      Game.gold(stop.id) ? h('div', { class: 'notice' },
+        h('p', null, 'You already have the gold stamp of this lesson. You can take the test again for practice.'),
+        pt('Você já tem o carimbo de ouro desta lição. Pode refazer o teste para praticar.')) : null,
+      h('div', { class: 'act-foot' }, start)]);
+
+    function run() {
+      var qs = pick();
+      var total = qs.length;
+      var i = 0, score = 0, hearts = HEARTS;
+      var heartsEl = h('span', { class: 'hearts', role: 'img' });
+      function paintHearts() {
+        clear(heartsEl);
+        heartsEl.setAttribute('aria-label', hearts + ' of ' + HEARTS + ' hearts left');
+        for (var k = 0; k < HEARTS; k++) heartsEl.appendChild(icon('heart', k < hearts ? '' : 'lost'));
+      }
+      step();
+
+      function step() {
+        dropTimers();
+        if (i >= total || hearts <= 0) {
+          ctx.finish(score, total, hearts <= 0
+            ? ['No hearts left. Practise the lesson and try again.', 'Acabaram os corações. Pratique a lição e tente de novo.'] : null);
+          return;
+        }
+        clear(body);
+        paintHearts();
+        var bar = progressBar(i, total);
+        bar.appendChild(heartsEl);
+        body.appendChild(bar);
+        var host = h('div', { class: 'q-host' });
+        body.appendChild(host);
+        window.scrollTo(0, 0);
+        var q = qs[i];
+        var o = {
+          strict: true, pt: false, plays: PLAYS,
+          onAnswer: function (ok) {
+            Game.note(q.id, ok);
+            if (ok) { score++; return; }
+            hearts--;
+            paintHearts();
+            shake(heartsEl);
+          },
+          isLast: function () { return i === total - 1 || hearts <= 0; }
+        };
+        function done() { i++; step(); }
+        if (q.type === 'w') askPicture(host, stop, q.word, o, done);
+        else if (q.type === 'n') askNumber(host, q.item, o, done);
+        else if (q.type === 'b') askBuild(host, q.item, o, done);
+        else { o.sv = makeStage(stop); askReply(host, stop, q.index, o, done); }
+      }
+    }
+  };
+
+  /* ================================================================ daily review */
+
+  function viewReview() {
+    var MAX = 8;
+    var root = h('div', { class: 'page' });
+    root.appendChild(topbar({ back: { href: '#', label: 'Journey' } }));
+    var main = h('main', { class: 'wrap act' });
+    main.appendChild(h('div', { class: 'act-head' },
+      h('p', { class: 'kicker' }, 'A few minutes every day'),
+      h('h1', null, 'Daily review'),
+      pt('Revisão diária', 'p', 'act-pt')));
+    main.appendChild(audioNotice());
+    var body = h('div', { class: 'act-body' });
+    main.appendChild(body);
+    root.appendChild(main);
+    session = { earned: 0, goalReached: false, levelUp: null };
+
+    var due = reviewDue();
+    if (due.length) run(due.slice(0, MAX));
+    else nothing();
+    return root;
+
+    function nothing() {
+      var known = Game.seen().filter(reviewItem);
+      if (!known.length) {
+        add(body, [instr('Nothing to review yet. Finish an activity of a lesson first: the words and sentences you practise come back here.',
+          'Ainda não há nada para revisar. Termine primeiro uma atividade de uma lição: as palavras e frases que você praticar voltam aqui.'),
+          h('div', { class: 'act-foot' }, h('a', { class: 'btn btn-primary', href: '#' }, 'Back to the journey', icon('forward')))]);
+        return;
+      }
+      var more = h('button', { class: 'btn', type: 'button' }, icon('retry'), 'Practise anyway');
+      more.addEventListener('click', function () { run(shuffle(known).slice(0, MAX)); });
+      add(body, [instr('All done for today. New questions come back tomorrow.', 'Tudo em dia por hoje. Amanhã voltam novas perguntas.'),
+        h('div', { class: 'controls' }, more, h('a', { class: 'btn btn-primary', href: '#' }, 'Back to the journey', icon('forward')))]);
+    }
+
+    function run(ids) {
+      runQuestions(body, ids.length, function (i, host, done) {
+        var it = reviewItem(ids[i]);
+        var o = { pt: true, last: i === ids.length - 1, mode: 'pt' };
+        SP.preload([it.stop.id]);
+        host.appendChild(h('p', { class: 'kicker' }, 'From: ' + it.stop.title));
+        function fin(res) { Game.note(ids[i], res.first); done(res.first); }
+        if (it.type === 'w') askPicture(host, it.stop, it.word, o, fin);
+        else if (it.type === 'n') askNumber(host, it.item, o, fin);
+        else if (it.type === 'b') askBuild(host, it.item, o, fin);
+        else askReply(host, it.stop, it.index, o, fin);
+      }, function (score, total) {
+        SP.stop();
+        earn(GameKit.MILES.finish);
+        var streak = Game.touch();
+        var left = reviewDue().length;
+        var again = h('button', { class: 'btn', type: 'button' }, icon('retry'), left === 1 ? '1 more question' : left + ' more questions');
+        again.addEventListener('click', render);
+        clear(body);
+        body.appendChild(h('section', { class: 'result pop-in', 'aria-live': 'polite' },
+          h('div', { class: 'result-badge good' }, icon('check')),
+          h('h2', null, 'Review done!'),
+          pt('Revisão feita!'),
+          h('p', { class: 'result-score' }, h('strong', null, score + ' of ' + total), ' correct the first time'),
+          h('div', { class: 'result-note' },
+            h('p', null, 'Right answers come back in a few days. Wrong ones come back sooner.'),
+            pt('As respostas certas voltam em alguns dias. As erradas voltam antes.')),
+          milesEarned(streak),
+          h('div', { class: 'result-actions' },
+            h('a', { class: 'btn btn-primary', href: '#' }, 'Back to the journey', icon('forward')),
+            left ? again : null)));
+        window.scrollTo(0, 0);
+        GameKit.sfx('done');
+        if (session.goalReached || session.levelUp) GameKit.confetti();
+      });
+    }
+  }
 
   /* ================================================================ phrasebook */
 

@@ -213,6 +213,45 @@ window.HD_CONTENT.journeys.push({
           { t: "Welcome to you too.", why: "Just say “Thank you!”", whyPt: "Diga apenas “Thank you!”" }
         ] }
       ],
+      // Challenge "Build the sentence": her own sentences to put in order. "trap" words don't belong;
+      // "why" is shown when she gets it wrong.
+      build: [
+        { t: "Here are our passports and visas.", pt: "Aqui estão nossos passaportes e vistos.", trap: ["is"],
+          why: "“Passports” is plural, so we say “Here are…”, not “Here is…”.",
+          whyPt: "“Passports” está no plural, então dizemos “Here are…”, e não “Here is…”." },
+        { t: "We are moving to Dubai.", pt: "Estamos nos mudando para Dubai.", trap: ["move"],
+          why: "For something that is happening now we say “We are moving”.",
+          whyPt: "Para algo que está acontecendo agora, dizemos “We are moving”." },
+        { t: "She is our nanny.", pt: "Ela é nossa babá.", trap: ["he"],
+          why: "For a woman we say “she”: “She is our nanny.”",
+          whyPt: "Para mulher dizemos “she”: “She is our nanny.”" },
+        { t: "They are two.", pt: "Eles têm dois anos.", trap: ["have", "years"],
+          why: "In English we say “They are two”, not “They have two years”.",
+          whyPt: "Em inglês, a idade usa o verbo “to be”: “They are two”. Não se diz “They have two years”, como em português." },
+        { t: "This is my mother. She doesn’t speak English.", pt: "Esta é minha mãe. Ela não fala inglês.", trap: ["don’t"],
+          why: "With “she” we say “doesn’t”: “She doesn’t speak English.”",
+          whyPt: "Com “she” usamos “doesn’t”: “She doesn’t speak English.”" },
+        { t: "Sorry, could you say that again more slowly, please?", pt: "Desculpe, você pode repetir mais devagar, por favor?", trap: ["speak"],
+          why: "We “say” something again. “Speak” is for languages: “I speak Portuguese.”",
+          whyPt: "Usamos “say” para repetir algo. “Speak” é para idiomas: “I speak Portuguese.”" }
+      ],
+      // Challenge "Catch the number": lines with a number to hear. The first answer is the right one.
+      numbers: [
+        { who: "officer", t: "Please go to counter fourteen.", pt: "Por favor, vá ao guichê catorze.",
+          ask: "Which counter?", askPt: "Qual guichê?", a: ["14", "40", "4"] },
+        { who: "officer", t: "Your entry permit is valid for sixty days.", pt: "Sua autorização de entrada vale por sessenta dias.",
+          ask: "How many days?", askPt: "Quantos dias?", a: ["60", "16", "6"] },
+        { who: "officer", t: "Counter seventeen is free. Next, please.", pt: "O guichê dezessete está livre. Próximo, por favor.",
+          ask: "Which counter?", askPt: "Qual guichê?", a: ["17", "70", "7"] },
+        { who: "officer", t: "You arrived on flight EK 247?", say: "You arrived on flight E K, two four seven?", pt: "Vocês chegaram no voo EK 247?",
+          ask: "Which flight?", askPt: "Qual voo?", a: ["EK 247", "EK 274", "EK 427"] },
+        { who: "officer", t: "Please wait. It takes about fifteen minutes.", pt: "Por favor, aguarde. Leva uns quinze minutos.",
+          ask: "How many minutes?", askPt: "Quantos minutos?", a: ["15", "50", "5"] },
+        { who: "officer", t: "The visa number ends in three, nine, one.", pt: "O número do visto termina em três, nove, um.",
+          ask: "How does the number end?", askPt: "Como termina o número?", a: ["391", "319", "931"] }
+      ],
+      // Challenge "Final test": mixed questions from this lesson, without help.
+      test: true,
       phrases: [
         { t: "Here are our passports and visas.", pt: "Aqui estão nossos passaportes e vistos." },
         { t: "We are moving to Dubai.", pt: "Estamos nos mudando para Dubai." },

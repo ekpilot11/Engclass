@@ -30,6 +30,8 @@
   --chan-green: #0E7A3D;  /* customs channels: same in both themes, like the real signs */
   --chan-red: #B3261E;
   --stamp: #2B57A6;
+  --gold: #D9A400;        /* gold stamp */
+  --gold-ink: #8A6500;
   --pt-ink: #2A6B48;      /* Portuguese help text */
   --pt-tag-ink: #FFFFFF;
   --sign-pt: #A8E6C3;
@@ -76,6 +78,8 @@
     --board-dim: #808B95;
     --board-line: #1E252C;
     --stamp: #8DAEFF;
+    --gold: #FFC833;
+    --gold-ink: #FFD566;
     --pt-ink: #8ED6AE;
     --pt-tag-ink: #0B2416;
     --sign-pt: #A8E6C3;
@@ -110,6 +114,8 @@
   --board-dim: #808B95;
   --board-line: #1E252C;
   --stamp: #8DAEFF;
+  --gold: #FFC833;
+  --gold-ink: #FFD566;
   --pt-ink: #8ED6AE;
   --pt-tag-ink: #0B2416;
   --sign-pt: #A8E6C3;
@@ -366,6 +372,19 @@ h1:focus { outline: none; }
 .fc-day.goal .fc-dot { border-color: var(--yellow); background: var(--yellow); color: var(--yellow-ink); }
 .fc-letter { font: 700 0.7rem/1 var(--font-mono); color: var(--board-dim); }
 .fc-day.today .fc-letter { color: var(--yellow); }
+.fc-review {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px;
+  padding: 12px 14px; border-radius: 12px;
+  background: rgb(255 255 255 / 0.08); color: var(--sign-ink); text-decoration: none;
+}
+.fc-review:hover { background: rgb(255 255 255 / 0.14); }
+.fc-review:focus-visible { outline-color: var(--yellow); }
+.fc-review .ico { width: 22px; height: 22px; color: var(--board-dim); }
+.fc-review.due { background: var(--yellow); color: var(--yellow-ink); }
+.fc-review.due .ico { color: var(--yellow-ink); }
+.fc-review.due .fc-pt { color: var(--yellow-ink); }
+.fc-review-main { display: grid; gap: 1px; font-size: 0.9rem; line-height: 1.3; }
+.fc-review-main strong { font: 800 1.05rem/1.2 var(--font-display); }
 .fc-level {
   display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px;
   font-size: 0.88rem; color: var(--board-dim);
@@ -413,6 +432,7 @@ h1:focus { outline: none; }
   border: 2px dashed var(--line); filter: grayscale(1); opacity: 0.5;
 }
 .mini-stamp.got { border: 4px double var(--stamp); filter: none; opacity: 1; transform: rotate(-8deg); }
+.mini-stamp.gold { border: 4px double var(--gold); filter: none; opacity: 1; transform: rotate(-8deg); box-shadow: 0 0 0 3px rgb(255 194 26 / 0.25); }
 
 .tools { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 .tool {
@@ -748,6 +768,51 @@ h1:focus { outline: none; }
 .pic:disabled { cursor: default; }
 .quiz-card { display: flex; flex-direction: column; gap: 14px; }
 
+/* challenges: build the sentence, catch the number, final test, daily review */
+.q-host { display: flex; flex-direction: column; gap: 16px; }
+.listen-box { display: grid; justify-items: center; gap: 6px; }
+.big-listen:disabled { opacity: 0.4; cursor: not-allowed; }
+.chip-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.who-line { display: flex; align-items: center; gap: 10px; }
+.line-text { font-size: 1.12rem; line-height: 1.45; font-weight: 700; transition: filter 0.25s; }
+.line-text.blurred { filter: blur(7px); user-select: none; -webkit-user-select: none; }
+.num-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.num-opt {
+  min-height: 72px; padding: 10px 4px 6px; border-radius: 14px;
+  border: 2px solid var(--line); background: var(--surface); color: var(--ink);
+  font: 800 1.35rem/1.1 var(--font-display); font-variant-numeric: tabular-nums; cursor: pointer;
+}
+.num-opt:hover:not(:disabled) { border-color: var(--teal); }
+.num-opt:disabled { cursor: default; }
+.num-opt.is-right { border-color: var(--ok); background: var(--ok-soft); }
+.num-opt.is-wrong { border-color: var(--bad); background: var(--bad-soft); text-decoration: line-through; text-decoration-color: var(--bad); }
+.build-pt { font: 800 1.25rem/1.3 var(--font-display); color: var(--pt-ink); }
+.build-line {
+  display: flex; flex-wrap: wrap; align-content: flex-start; gap: 8px;
+  min-height: 108px; padding: 12px; border-radius: 14px;
+  border: 2px dashed var(--line); background: var(--surface);
+}
+.build-line.is-wrong { border-color: var(--bad); }
+.build-line.is-right { border-style: solid; border-color: var(--ok); background: var(--ok-soft); flex-direction: column; }
+.build-line.is-shown { border-style: solid; border-color: var(--yellow); background: var(--yellow-soft); flex-direction: column; }
+.build-hint { color: var(--muted); }
+.build-bank { display: flex; flex-wrap: wrap; gap: 8px; min-height: 44px; }
+.chip.is-right { border-color: var(--ok); background: var(--ok-soft); }
+.chip.is-wrong { border-color: var(--bad); background: var(--bad-soft); }
+.build-answer { font: 800 1.2rem/1.4 var(--font-display); }
+.hearts { display: inline-flex; gap: 3px; color: var(--bad); flex: none; }
+.hearts .ico { width: 22px; height: 22px; }
+.hearts .lost { color: var(--line); }
+.rules { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.rules li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: start; }
+.rules .ico { width: 24px; height: 24px; color: var(--teal); margin-top: 1px; }
+.rules .rule-heart .ico { color: var(--bad); }
+.result-note { display: grid; gap: 2px; max-width: 46ch; }
+.act-row.extra .ar-num { border-style: dashed; color: var(--teal); }
+.act-row.extra .ar-num .ico { width: 20px; height: 20px; }
+.act-row.extra.done .ar-num { border-style: solid; color: var(--on-ok); }
+.act-row.gold .ar-num { background: var(--gold); border-color: var(--gold); color: #17150C; }
+
 /* signs */
 .sign {
   display: flex; align-items: center; gap: 12px; width: 100%;
@@ -858,6 +923,8 @@ h1:focus { outline: none; }
   font: 700 0.72rem/1.1 var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em;
   transform: rotate(-10deg); flex: none;
 }
+.stamp.gold { border-color: var(--gold); color: var(--gold-ink); }
+.stamp.gold .stamp-icon img { filter: sepia(0.9) saturate(2.2) hue-rotate(-12deg) contrast(1.05); }
 .stamp.big { width: 210px; font-size: 0.85rem; animation: stamp-in 0.55s cubic-bezier(.2, .9, .3, 1.2) both; }
 .stamp-icon { font-size: 2.2rem; line-height: 1.1; filter: grayscale(1) contrast(1.1); }
 .stamp.big .stamp-icon { font-size: 3rem; }

@@ -31,8 +31,19 @@ play on the lesson picture like a little film. The camera moves to the person wh
 the words light up while they are spoken, the speaker's portrait moves with the voice, and a word card pops up
 when a word of the lesson is said. Other lessons keep the chat layout until their camera places are set.
 
+**Challenges.** Lessons can have three harder activities (so far: Passport control). They don't count for the
+passport stamp, so nothing she already earned changes.
+
+- **Build the sentence**: tap mixed-up words into the right order. There are trap words ("have" in
+  "They are two"), and a wrong answer explains the mistake. First with sound, then from the Portuguese only.
+- **Catch the number**: hear a line with the words hidden and pick the number (14 or 40? 60 or 16?).
+- **Final test**: 10 mixed questions with no Portuguese, hidden words, two listens per line and 3 hearts.
+  8 right answers turn the lesson's stamp **gold**.
+
 There is also:
 
+- a **Daily review** on the home page: up to 8 questions from what she got wrong (they come back the same
+  day) and what she got right (it comes back after 1, 2, 4, 8 and 16 days);
 - a **Phrasebook** with a "Show" button that puts a sentence in big letters (with the Portuguese below), including cards for **grandma and the nanny**, who don't speak English;
 - **passport stamps** for every stop you finish;
 - **miles**: 10 for a right answer on the first try, 5 after a mistake, 20 for finishing an activity.
@@ -107,6 +118,12 @@ The lessons are in `js/content-flight.js` and `js/content-airport.js`; character
 - In questions the **first** answer is correct; in role-play choices the one with `ok: true` is correct. Options are shuffled on screen.
 - Role-play turns: `{ who, t, pt }` a line, `{ sit, pt }` a situation card, `{ choose: [...] }` your reply (with `why` / `whyPt` for wrong answers), `{ ask, askPt, choose }` a listening question. Lines can have `fast: true` or `quiet: true`.
 - A new stop only needs an `id`, `title`, `icon` and any of `vocab`, `dialogue`, `roleplay`, `signs`. The activities appear automatically.
+- Challenges are optional lists on a stop:
+  - `build: [{ t, pt, trap: ["have"], why, whyPt }]`: her own sentences to put in order. `trap` words don't
+    belong in the sentence; `why` is shown when she gets it wrong.
+  - `numbers: [{ who, t, pt, ask, askPt, a: ["14", "40", "4"] }]`: lines with a number; the **first** answer is correct.
+    Write the number as words in `t` ("counter fourteen") so it is spoken correctly.
+  - `test: true`: a final test made from the stop's words, role-play, numbers and sentences.
 
 After changing English text, record the new sentences (only new or changed ones are recorded):
 

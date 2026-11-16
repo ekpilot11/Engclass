@@ -152,6 +152,7 @@
       return limit ? ids.slice(0, limit) : ids;
     }
     function seen() { return Object.keys(g.review); }
+    function drop(id) { if (g.review[id]) { delete g.review[id]; save(); } }
 
     function setGold(stopId) {
       if (g.gold[stopId]) return false;
@@ -167,7 +168,7 @@
     }
 
     return {
-      award: award, touch: touch, view: view, note: note, due: due, seen: seen,
+      award: award, touch: touch, view: view, note: note, due: due, seen: seen, drop: drop,
       gold: function (stopId) { return g.gold[stopId] || null; },
       setGold: setGold, reset: reset
     };
