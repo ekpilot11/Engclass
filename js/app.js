@@ -2250,10 +2250,14 @@
     ending: ['One moment: your feedback is coming…', 'Um momento: seu feedback está chegando…']
   };
   var TALK_PROBLEMS = {
-    mic: ['The microphone is not allowed. Tap Start again and choose “Allow” when your phone asks. If it doesn’t ask: on an iPhone, open Settings, then Safari, then Microphone, and choose “Ask” or “Allow”.',
-      'O microfone não está liberado. Toque em Start de novo e escolha “Permitir” quando o celular perguntar. Se ele não perguntar: no iPhone, abra Ajustes, depois Safari, depois Microfone, e escolha “Perguntar” ou “Permitir”.'],
+    mic: ['The microphone is not allowed. Tap Start again and choose “Allow” when your phone asks. If it doesn’t ask, on an iPhone open Settings, then the app you use (Safari or Chrome), then Microphone, and choose “Ask” or “Allow”.',
+      'O microfone não está liberado. Toque em Start de novo e escolha “Permitir” quando o celular perguntar. Se ele não perguntar, no iPhone abra Ajustes, depois o aplicativo que você usa (Safari ou Chrome), depois Microfone, e escolha “Perguntar” ou “Permitir”.'],
     nomic: ['No working microphone was found. If another app is using the microphone (a phone call, for example), close it and try again.',
       'Nenhum microfone funcionando foi encontrado. Se outro aplicativo estiver usando o microfone (uma ligação, por exemplo), feche-o e tente de novo.'],
+    refused: ['The conversation service did not accept the call. This is a setup problem, not your phone or your internet. Please tell us what you see below.',
+      'O serviço de conversa não aceitou a ligação. É um problema de configuração, não do seu celular nem da sua internet. Por favor, conte para nós o que aparece abaixo.'],
+    silent: ['The officer ended the call because he did not hear you. Check that the microphone works, and answer after he speaks.',
+      'O oficial encerrou a ligação porque não ouviu você. Confira se o microfone funciona e responda depois que ele falar.'],
     network: ['No connection. The live conversation needs the internet: check your Wi-Fi or mobile data and try again.',
       'Sem conexão. A conversa ao vivo precisa de internet: confira o Wi-Fi ou os dados móveis e tente de novo.'],
     limit: ['The limit for live conversations is reached for now. Try again later, or tomorrow.',
@@ -2722,9 +2726,12 @@
           if (!alive) return;
           SP.stop();
           if (!spoke() && !feedback) {
-            // it never started, or she left before she said anything: back to the mission
-            var failed = timedOut || (r.why !== 'done' && r.why !== 'time');
-            mission(failed ? talkProblem(timedOut ? 'network' : r.why, r.detail) : null);
+            // Before she said anything. If she ended it herself (End, leaving, the app in the background),
+            // simply back to the mission; if it ended by itself, always say why.
+            var failed = timedOut || r.by !== 'page' || (r.why !== 'done' && r.why !== 'time');
+            var why = timedOut ? 'network'
+              : r.why === 'done' || r.why === 'time' ? (connected && r.seconds >= 30 ? 'silent' : 'other') : r.why;
+            mission(failed ? talkProblem(why, r.detail || (why === 'silent' ? '' : 'The call ended right after it started.')) : null);
             return;
           }
           // a call that ran to its limit is "time up", whatever the connection said at the end

@@ -30,7 +30,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'js', 'agents.js')
 OUT_START = 'window.HD_AGENTS = '
 
-SITE_HOSTS = ['ekpilot11.github.io']     # where the website lives (GitHub Pages)
+# where the website lives (GitHub Pages). Both spellings: ElevenLabs compares the address of the page that
+# starts the call with this list, and its documentation shows hosts both with and without "https://".
+SITE_HOSTS = ['ekpilot11.github.io', 'https://ekpilot11.github.io']
 DEV_HOSTS = ['localhost:8765']           # only with --dev
 MAX_SECONDS = 300                        # one conversation ends by itself after 5 minutes
 DAILY_LIMIT = 12                         # conversations a day, for each agent

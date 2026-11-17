@@ -16,7 +16,9 @@
  *     onUser(text)          what the AI understood her to say
  *     onGoal(id)            the AI reports that she reached a goal
  *     onFeedback(data)      the AI's feedback at the end: { praise, corrections: [{ kind, said, better, why }], goals }
- *     onEnd({ why, seconds })   'done' | 'time' | 'mic' | 'nomic' | 'limit' | 'network' | 'other'
+ *     onEnd({ why, detail, seconds, by })
+ *                           why: 'done' | 'time' | 'mic' | 'nomic' | 'limit' | 'refused' | 'network' | 'other'
+ *                           by: 'page' (the page hung up: end()) or 'far' (ElevenLabs or the connection ended it)
  *   });
  *   session.say(text)       a typed sentence, as if she had said it
  *   session.app(text)       a message from a button of the app ("[app] ..."): the AI obeys it, it is never shown
@@ -33,6 +35,12 @@
 
   var VENDOR = 'js/vendor/elevenlabs-client.js';
   var APP = '[app]';        // how a message from a button of the app begins (the AI's instructions know this)
+  /* The kinds of connection, in the order they are tried. The plain WebSocket goes straight from the
+     browser to ElevenLabs and carries the website's address, which the agent checks (its allowlist).
+     WebRTC goes through ElevenLabs' relay, where that check can refuse the call; it is the second try. */
+  var TRANSPORTS = ['websocket', 'webrtc'];
+  var CONFIRM_MS = 4000;    // WebRTC: a line that is still open after this long counts as accepted
+  var REFUSED = /not authori[sz]ed|access denied|forbidden|origin not allowed|\b401\b|\b403\b/;
   var loading = null;
 
   function supported() {
@@ -70,6 +78,7 @@
     if (name === 'NotFoundError' || name === 'OverconstrainedError' || name === 'NotReadableError' || name === 'AbortError' ||
         /requested device not found|no microphone|could not start audio source/.test(msg)) return 'nomic';
     if (/quota|credit|limit|exceed|concurren|too many|\b429\b|\b402\b/.test(msg)) return 'limit';
+    if (REFUSED.test(msg)) return 'refused';
     if (navigator.onLine === false || /network|failed to fetch|load failed|could not be loaded|socket|connection|timeout|timed out/.test(msg)) return 'network';
     return 'other';
   }
@@ -80,86 +89,142 @@
   }
 
   function start(o) {
-    var conv = null;          // the ElevenLabs conversation, once it is connected
-    var connected = false;
+    var conv = null;          // the ElevenLabs conversation that was accepted
+    var confirmed = false;    // ElevenLabs accepted the call (not only opened the line)
     var startedAt = 0;
     var ended = false;
-    var lastError = '';
+    var tryNo = 0;            // which connection try is the current one (callbacks of older tries are ignored)
+    var tries = [];           // what went wrong with each try, for the page: "websocket: …"
+    var whys = [];
 
     function send(text) {
-      if (!conv || ended) return false;
+      if (!conv || ended || !confirmed) return false;
       try { conv.sendUserMessage(text); return true; } catch (e) { return false; }
     }
     function tell(name, arg) {
       if (ended || !o[name]) return;
       try { o[name](arg); } catch (e) { /* a mistake in the page must not break the call */ }
     }
-    function finish(why, detail) {
+    function finish(why, detail, by) {
       if (ended) return;
       ended = true;
       var seconds = startedAt ? Math.round((Date.now() - startedAt) / 1000) : 0;
       if (conv) { try { conv.endSession(); } catch (e) { /* already closed */ } }
-      if (o.onEnd) { try { o.onEnd({ why: why, detail: detail || lastError || '', seconds: seconds }); } catch (e) { /* ignore */ } }
+      if (o.onEnd) {
+        try { o.onEnd({ why: why, detail: detail || '', seconds: seconds, by: by || 'far' }); } catch (e) { /* ignore */ }
+      }
     }
 
-    function options(connectionType) {
+    /* One try with one kind of connection. */
+    function attempt(EL, k) {
+      var n = ++tryNo;
+      var type = TRANSPORTS[k];
+      var mine = null;            // this try's conversation
+      var lineOpen = false, lost = false, lastError = '';
+      var confirmTimer = null;
+      function current() { return n === tryNo && !ended; }
+      function confirm() {
+        if (!current() || confirmed || lost) return;
+        confirmed = true;
+        clearTimeout(confirmTimer);
+        if (mine) conv = mine;
+        startedAt = Date.now();
+        tell('onStatus', 'connected');
+      }
+      // This try did not work: note why, then try the next kind of connection, or give up.
+      function fail(err, dropped) {
+        if (!current() || confirmed || lost) return;
+        lost = true;
+        clearTimeout(confirmTimer);
+        if (mine) { try { mine.endSession(); } catch (e) { /* already closed */ } }
+        var message = String((err && err.message != null ? err.message : err) || '');
+        var text = message + (lastError && message.indexOf(lastError) < 0 ? (message ? ' (' : '') + lastError + (message ? ')' : '') : '');
+        // a line that opens and then drops is not a sign of a bad internet connection by itself
+        var why = REFUSED.test(text.toLowerCase()) ? 'refused'
+          : dropped ? (navigator.onLine === false ? 'network' : 'other')
+          : reason({ name: err && err.name, message: text });
+        tries.push(type + ': ' + (text || 'the call ended right after it started'));
+        whys.push(why);
+        if (why === 'mic' || why === 'nomic' || why === 'limit' || k + 1 >= TRANSPORTS.length) {
+          var overall = whys.indexOf('refused') >= 0 ? 'refused'
+            : whys.indexOf('mic') >= 0 ? 'mic' : whys.indexOf('nomic') >= 0 ? 'nomic' : whys.indexOf('limit') >= 0 ? 'limit'
+            : whys.indexOf('other') >= 0 ? 'other' : whys[0];
+          finish(overall, tries.join(' | '), 'far');
+          return;
+        }
+        attempt(EL, k + 1);
+      }
+
       var opts = {
         agentId: o.agentId,
-        connectionType: connectionType,
+        connectionType: type,
         dynamicVariables: { level: o.level || 'normal' },
         useWakeLock: true,           // keep the screen on while they talk
         stripAudioTags: true,
         clientTools: {
-          goal_done: function (p) { if (p && p.goal) tell('onGoal', String(p.goal)); return 'ok'; },
-          show_feedback: function (p) { tell('onFeedback', p || {}); return 'ok'; }
+          goal_done: function (p) { if (current() && p && p.goal) tell('onGoal', String(p.goal)); return 'ok'; },
+          show_feedback: function (p) { if (current()) tell('onFeedback', p || {}); return 'ok'; }
         },
+        onConversationCreated: function (c) { if (n === tryNo) mine = c; },
         onConnect: function () {
-          connected = true;
-          startedAt = Date.now();
-          tell('onStatus', 'connected');
+          if (!current()) return;
+          lineOpen = true;
+          tell('onStatus', 'connecting');
+          // the WebSocket handshake already received ElevenLabs' answer; WebRTC waits for a sign of life
+          if (type === 'websocket') confirm();
+          else confirmTimer = setTimeout(function () { if (lineOpen && !lost) confirm(); }, CONFIRM_MS);
         },
+        onConversationMetadata: function () { confirm(); },
+        onAudio: function () { confirm(); },
         onDisconnect: function (d) {
-          if (!connected) return;   // a first attempt that failed: start() below decides what happens
+          lineOpen = false;
+          if (!current()) return;
+          var message = (d && (d.message || d.closeReason || (d.context && (d.context.reason || d.context.type)))) || '';
+          if (!confirmed) { fail(message, true); return; }
           if (d && d.reason === 'error') {
             var timeUp = d.context && d.context.type === 'max_duration_exceeded';
-            finish(timeUp ? 'time' : reason(d.message), d.message);
+            finish(timeUp ? 'time' : reason(d.message || lastError), d.message || lastError, 'far');
           } else {
-            finish('done');
+            finish('done', '', 'far');
           }
         },
-        onError: function (message) { lastError = String(message || ''); },
+        onError: function (message) { if (n === tryNo) lastError = String(message || ''); },
         onMessage: function (m) {
-          if (!m || !m.message) return;
+          if (!current() || !m || !m.message) return;
           var text = String(m.message);
-          if (m.role === 'agent' || m.source === 'ai') { tell('onAgent', text); return; }
+          if (m.role === 'agent' || m.source === 'ai') { confirm(); tell('onAgent', text); return; }
           if (text.indexOf(APP) === 0) return;          // an echo of a button message
           tell('onUser', text);
         },
         onAgentResponseCorrection: function (c) {
-          if (c && c.corrected_agent_response) tell('onAgentFix', String(c.corrected_agent_response));
+          if (current() && c && c.corrected_agent_response) tell('onAgentFix', String(c.corrected_agent_response));
         },
-        onModeChange: function (m) { if (m && m.mode) tell('onMode', m.mode); }
+        onModeChange: function (m) {
+          if (!current() || !m || !m.mode) return;
+          if (m.mode === 'speaking') confirm();
+          tell('onMode', m.mode);
+        }
       };
       if (o.speed) opts.overrides = { tts: { speed: o.speed } };
-      return opts;
+
+      var started;
+      try { started = EL.Conversation.startSession(opts); } catch (e) { started = Promise.reject(e); }
+      started.then(function (c) {
+        mine = c;
+        if (n !== tryNo || ended || lost) { try { c.endSession(); } catch (e) { /* ignore */ } return; }  // given up, or she left
+        if (confirmed) conv = c;
+      }, function (err) {
+        fail(err, false);
+      });
     }
 
     tell('onStatus', 'loading');
     loadClient().then(function (EL) {
-      if (ended) return null;
+      if (ended) return;
       tell('onStatus', 'connecting');
-      // WebRTC gives the best sound and echo cancelling; some networks block it, so try a plain connection next
-      return EL.Conversation.startSession(options('webrtc')).catch(function (err) {
-        var why = reason(err);
-        if (ended || connected || why === 'mic' || why === 'nomic' || why === 'limit') throw err;
-        return EL.Conversation.startSession(options('websocket'));
-      });
-    }).then(function (c) {
-      if (!c) return;
-      if (ended) { try { c.endSession(); } catch (e) { /* ignore */ } return; }   // she left while it was connecting
-      conv = c;
-    }).catch(function (err) {
-      finish(reason(err), String((err && err.message) || err));
+      attempt(EL, 0);
+    }, function (err) {
+      finish(reason(err), String((err && err.message) || err), 'far');
     });
 
     return {
@@ -168,7 +233,7 @@
       mute: function (on) { if (conv && !ended) { try { conv.setMicMuted(!!on); } catch (e) { /* ignore */ } } },
       level: function () { try { return conv && !ended ? conv.getOutputVolume() || 0 : 0; } catch (e) { return 0; } },
       heard: function () { try { return conv && !ended ? conv.getInputVolume() || 0 : 0; } catch (e) { return 0; } },
-      end: function () { finish('done'); },
+      end: function () { finish('done', '', 'page'); },
       get open() { return !ended; }
     };
   }

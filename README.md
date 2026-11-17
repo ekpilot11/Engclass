@@ -243,8 +243,11 @@ node tools/list-speech.js > /tmp/speech.json     # the hint sentences join the l
   5 minutes, there are at most 12 conversations a day, and her voice is not recorded. ElevenLabs keeps the
   text of a conversation for 30 days. The API key needs the "ElevenLabs Agents: Write" permission and is never
   stored in this project.
-- **The website's side.** `js/talk-ai.js` connects (WebRTC first, a plain WebSocket if that fails) with the
-  official ElevenLabs client, which is bundled in `js/vendor/elevenlabs-client.js` and loaded only on the
+- **The website's side.** `js/talk-ai.js` connects with a plain WebSocket first, because only that connection
+  carries the website's address to ElevenLabs' address check (with WebRTC, which goes through ElevenLabs' relay,
+  the check refused every call: "Your domain is not authorized"). WebRTC is the second try. A call counts as
+  started only when ElevenLabs has accepted it, and if it fails, the page shows why, with the technical details
+  of each try. It uses the official ElevenLabs client, which is bundled in `js/vendor/elevenlabs-client.js` and loaded only on the
   conversation page. `tools/build-vendor.sh` builds that file again, also for a newer version. The page ends
   a call when she leaves it, or when the app is in the background for 20 seconds, so that no minutes are wasted.
 - **Corrections are checked twice.** The AI may only report mistakes from a short list of kinds
@@ -252,6 +255,8 @@ node tools/list-speech.js > /tmp/speech.json     # the hint sentences join the l
   words and the corrected sentence is different.
 - **Testing.** A real voice conversation can only be tested on a phone or computer with a microphone, on the
   published website. After changing the AI's instructions, run `tools/test_agents.py` and read the transcripts.
+  ElevenLabs keeps a record of every call, also of refused ones, with the reason
+  (`GET /v1/convai/conversations?agent_id=…`, then `GET /v1/convai/conversations/{id}`).
 
 ## Files
 
